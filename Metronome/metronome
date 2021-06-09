@@ -1,0 +1,475 @@
+// Always start playback at start of a measure.
+// Loop sections should also fit to measures.
+
+desc:Metronome
+
+slider1:1<0,1,1{NO,YES}>-Sync
+slider2:120<40,240,1>-Tempo
+slider3:4<1,8,1>-Numerator
+slider4:4<1,8,1>-Denominator
+slider5:800<60,3200,10>-1. Tone (Hz)
+slider6:-6<-30,0,1>-1. Tone (dB)
+slider7:1600<60,3200,10>-2. Tone (Hz)
+slider8:-12<-30,0,1>-2. Tone (dB)
+slider9:25<10,500,1>-Tone Length (ms)
+slider10:0<0,3,1{Playing/Recording,Playing,Recording,Stopping}>While
+
+in_pin:L in
+in_pin:R in
+out_pin:L out
+out_pin:R out
+
+@init
+c_ampdB = 8.6858896380650365530225783783321;
+//denorm = 10^-30;
+
+time = 0;
+click_count = 1000;
+
+wave1_pos = 0;
+wave2_pos = 0;
+
+function doCenterText(ctrX, ctrY, val)(
+  str = sprintf(#, "%.f", val);
+  gfx_measurestr(str, str_w, str_h);
+  gfx_x = ctrX - str_w/2;
+  gfx_y = ctrY - str_h/2;
+  gfx_drawstr(str);
+);
+
+
+@slider
+wave1_speed = (2*$pi*slider5)/srate;
+volume1 = slider6 <= -30.0 ? 0.0 : exp(slider6/c_ampdB);
+
+wave2_speed = (2*$pi*slider7)/srate;
+volume2 = slider8 <= -30.0 ? 0.0 : exp(slider8/c_ampdB);
+
+fade_out = exp(30/max(slider9*srate/1000,0)/c_ampdB);
+
+@block
+slider1 ? (
+slider2 = tempo;
+sliderchange(2);
+slider3 = ts_num;
+sliderchange(3);
+slider4 = ts_denom;
+sliderchange(4);
+clicks_per_sec = ((tempo*ts_denom*0.25)/60);
+):(
+ts_num = slider3;
+ts_denom = slider4;
+clicks_per_sec = ((slider2*ts_denom*0.25)/60);
+);
+
+bx = 1/(srate/clicks_per_sec);
+
+@sample
+spl0 = spl0 + sin(wave1_pos)*volume1*vol1c + sin(wave2_pos)*volume2*vol2c;
+(wave1_pos += wave1_speed) > 2*$pi ? wave1_pos -= 2*$pi;
+spl1 = spl1 + sin(wave1_pos)*volume1*vol1c + sin(wave2_pos)*volume2*vol2c;
+(wave2_pos += wave2_speed) > 2*$pi ? wave2_pos -= 2*$pi;
+
+mode = (slider10 == 0 ? (play_state == 1) || (play_state == 5) : (slider10 == 1 ? (play_state == 1) : (slider10 == 2 ? (play_state == 5) : (play_state == 0))));
+
+mode ?
+(
+// 2nd click
+(time += bx) > 1 ? (
+vol2c = 1; time-=1; click_count+=1;
+wave2_pos = 0;
+):(
+vol2c /= fade_out;
+//vol2c < denorm ? vol2c=0;
+);
+
+// 1st click
+click_count >= ts_num ? (
+wave1_pos = click_count = 0; vol1c = 1; vol2c = 0;
+):(
+vol1c /= fade_out;
+//vol1c < denorm ? vol1c=0;
+);
+):(
+vol2c=0;
+vol1c=0;
+);
+
+
+
+@gfx 393 203
+
+
+ gfx_setfont(1,"Arial",14,'a');
+ gfx_a=1;
+ 
+ //fundo azul
+ gfx_r=0.3;
+ gfx_g=0.2;
+ gfx_b=0.1;
+ 
+ gfx_x=0 ;
+ gfx_y=0;
+ gfx_rectto(432,203);
+ 
+ //fundo azul
+ gfx_r=0.8;
+ gfx_g=0.5;
+ gfx_b=0.2;
+ 
+ gfx_x=0;
+ gfx_y=0;
+ gfx_rectto(429,200);
+ gfx_a=.9;
+ //fundo azul
+ gfx_r=0.8;
+ gfx_g=0.2;
+ gfx_b=0.;
+
+ gfx_x=3;
+ gfx_y=3;
+ gfx_rectto(429,200);
+ 
+ 
+ 
+ //Borda Panel
+          gfx_a = 1;
+          gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+          gfx_roundrect(8,41,415,156,4);
+          
+ 
+ 
+ gfx_setfont(1,"Arial",16,'a');
+
+ 
+ //Sync:
+  gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+  gfx_roundrect(08,16,75,21,4);
+         
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = 18; gfx_y = 19;
+ gfx_drawstr("Sync:");
+ 
+ 
+ slider1== 1 ?
+      (  
+ gfx_x = 55; gfx_y = 19;
+ gfx_drawstr("Yes");
+ );
+ 
+ slider1== 0 ?
+      ( 
+ gfx_x =56; gfx_y = 19;
+ gfx_drawstr("No");
+ );
+ 
+ 
+ 
+ 
+ //Mode:
+  gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+  gfx_roundrect(16,48,399,21,4);
+         
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = 48; gfx_y = 50;
+ gfx_drawstr("Mode:");
+ 
+ 
+ 
+ gfx_x =88; gfx_y = 50;
+ gfx_drawstr("Playng/Recording");
+ 
+ gfx_x = 195; gfx_y = 50;
+ gfx_drawstr("/");
+ 
+ gfx_x = 205; gfx_y = 50;
+ gfx_drawstr("Playng");
+ 
+ 
+ gfx_x = 251; gfx_y = 50;
+ gfx_drawstr("/");
+ 
+ gfx_x = 260; gfx_y = 50;
+ gfx_drawstr("Recording");
+ 
+ gfx_x = 324; gfx_y = 50;
+ gfx_drawstr("/");
+ 
+ gfx_x = 333; gfx_y = 50;
+ gfx_drawstr("Stopping");
+ 
+ 
+ 
+ 
+ 
+ //Code MOuse Mode:
+ slider10== 0 ?
+      (  
+      gfx_r = 1; gfx_g = 1; gfx_b = 0;
+ gfx_x =88; gfx_y = 50;
+ gfx_drawstr("Playng/Recording");
+ );
+
+ 
+ 
+ slider10== 1 ?
+      (  
+      gfx_r = 1; gfx_g = 1; gfx_b = 0;
+ gfx_x = 205; gfx_y = 50;
+ gfx_drawstr("Playng");
+ );
+ 
+ 
+ slider10==2 ?
+      ( 
+      gfx_r = 1; gfx_g = 1; gfx_b = 0;
+ gfx_x = 260; gfx_y = 50;
+ gfx_drawstr("Recording");
+ );
+ 
+ 
+ slider10==3 ?
+      ( 
+      gfx_r = 1; gfx_g = 1; gfx_b = 0;
+ gfx_x = 333; gfx_y = 50;
+ gfx_drawstr("Stopping");
+ );
+ 
+ 
+ 
+ 
+ 
+ //TimeSignature e BPM
+ gfx_setfont(1,"Arial",16,'a');
+  gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+  gfx_roundrect(16,76,104,112,4);
+         
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = 22; gfx_y = 83;
+ gfx_drawstr("Time Signature:");
+ 
+ gfx_r=0.4;
+ gfx_g=0.2;
+ gfx_b=0.1;
+ gfx_x=40 ;
+ gfx_y=164;
+ gfx_rectto(94,185);
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = 52; gfx_y = 146;
+ gfx_drawstr("BPM:");
+ gfx_setfont(1,"Arial",18,'a');
+ 
+ doCenterText(67,175, slider2);
+ 
+ gfx_setfont(1,"Arial Black",55,'a');
+   gfx_y=90; 
+    gfx_x=20;
+ gfx_drawnumber(slider3,0);
+    gfx_x=85;
+ gfx_drawnumber(slider4,0);
+ 
+ 
+ gfx_setfont(1,"Impact",42,'a');
+ gfx_x = 59; gfx_y = 99;
+ gfx_drawstr("/");
+ 
+ 
+ 
+ 
+ 
+ //Tones
+ gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+ gfx_roundrect(126,76,289,112,4);
+ 
+ //Tones 1
+ gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+ gfx_roundrect(134,83,133,97,4);
+ 
+ gfx_setfont(1,"Arial",16,'a');
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = 184; gfx_y = 86;
+ gfx_drawstr("Tone 1");
+
+
+
+doCenterText(162,170, slider5);
+  gfx_drawchar($'H');
+  gfx_drawchar($'z');
+doCenterText(227,170, slider6);
+  gfx_drawchar($'d');
+  gfx_drawchar($'b');
+  
+ gfx_a = 1;
+  gfx_r=0.4;
+  gfx_g=0.2;
+  gfx_b=0.1;
+ gfx_arc(168,135,25,10+3200/14*.0224, 10);
+ gfx_arc(232,135,25,10+0/5.9+5.1, 10); 
+  
+  
+
+ gfx_a = 0.6;
+  gfx_r=0.5;
+  gfx_g=0.9;
+  gfx_b=0.1;
+
+gfx_arc(168,135,23,10+slider5/14*.0224, 10);
+gfx_arc(168,135,24,10+slider5/14*.0224, 10);
+gfx_arc(168,135,25,10+slider5/14*.0224, 10);
+gfx_arc(168,135,26,10+slider5/14*.0224, 10);
+gfx_arc(168,135,27,10+slider5/14*.0224, 10);
+gfx_arc(168,135,28,10+slider5/14*.0224, 10);
+gfx_arc(168,135,23,10+slider5/14*.0224, 10);
+gfx_arc(168,135,24,10+slider5/14*.0224, 10);
+gfx_arc(168,135,25,10+slider5/14*.0224, 10);
+gfx_arc(168,135,26,10+slider5/14*.0224, 10);
+gfx_arc(168,135,27,10+slider5/14*.0224, 10);
+gfx_arc(168,135,28,10+slider5/14*.0224, 10);
+
+
+gfx_arc(232,135,23,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,24,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,25,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,26,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,27,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,28,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,23,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,24,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,25,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,26,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,27,10+slider6/5.9+5.1, 10);
+gfx_arc(232,135,28,10+slider6/5.9+5.1, 10);
+
+
+
+
+
+
+
+ //Tones 2
+ gfx_r=0.8;gfx_g=0.7;gfx_b=0.2;
+ gfx_roundrect(274,83,133,97,4);
+ 
+ gfx_setfont(1,"Arial",16,'a');
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = 325; gfx_y = 86;
+ gfx_drawstr("Tone 2");
+ 
+ 
+ 
+ doCenterText(302,170, slider7);
+ gfx_drawchar($'H');
+ gfx_drawchar($'z');
+ doCenterText(368,170, slider8);
+ gfx_drawchar($'d');
+ gfx_drawchar($'b');
+ 
+ gfx_a = 1;
+  gfx_r=0.4;
+  gfx_g=0.2;
+  gfx_b=0.1;
+ gfx_arc(308,135,25,10+3200/14*.0224, 10);
+ gfx_arc(372,135,25,10+0/5.9+5.1, 10);
+ 
+ gfx_a = 0.6;
+  gfx_r=0.5;
+  gfx_g=0.9;
+  gfx_b=0.1;
+ 
+ gfx_arc(308,135,23,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,24,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,25,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,26,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,27,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,28,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,23,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,24,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,25,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,26,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,27,10+slider7/14*.0224, 10);
+ gfx_arc(308,135,28,10+slider7/14*.0224, 10);
+ 
+ 
+ 
+ 
+ 
+ 
+ gfx_arc(372,135,23,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,24,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,25,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,26,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,27,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,28,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,23,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,24,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,25,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,26,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,27,10+slider8/5.9+5.1, 10);
+ gfx_arc(372,135,28,10+slider8/5.9+5.1, 10);
+ 
+ 
+ //Name FX
+ gfx_setfont(1,"Impact",38,'a');
+ 
+ gfx_r = 0; gfx_g = 0; gfx_b = 0; 
+ 
+ gfx_x=144;
+ gfx_y=1;
+ gfx_drawstr("Metronome");
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+ 
+ gfx_x=140;
+ gfx_y=1;
+ gfx_drawstr("Metronome");
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+ 
+ //Info Help
+ gfx_setfont(1,"Arial",14,'a');
+    help.x=394;            
+    help.y=4;
+ 
+ 
+  gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+  gfx_x = help.x; gfx_y = help.y;
+  gfx_drawstr("Info!!");
+ 
+  mouse_cap > 0 ? (
+    mouseon == 0 ? (
+      mouseclick = 0;
+      (mouse_x>= help.x && mouse_x<= help.x +50 && 
+       mouse_y>= help.y && mouse_y<= help.y +10) ?
+    displayHelp = 1;
+  );
+  );
+ 
+   displayHelp > 0.01 ? (
+    gfx_a = displayHelp;
+   gfx_mode = 0;
+   middleX = 420/2; middleY =305/2;
+   gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+   gfx_rect(middleX-96,middleY-120,220,110);
+   gfx_r = 1; gfx_g = 1; gfx_b = 0;
+   gfx_x = middleX-100; gfx_y = middleY-100;
+ 
+   gfx_drawstr("                                Author:
+                              Unknown
+        
+                CodeGFX/Skin: Gil Fernandes
+                     Youtube.com/Gfbeats 
+ 
+                       "
+         
+ );
+   displayHelp *=0.85;
+  ); 

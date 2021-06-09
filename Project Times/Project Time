@@ -1,0 +1,40 @@
+desc:Project Time
+
+slider1:0<0,14,1>-days
+slider2:0<0,24,1>-hours
+slider3:0<0,60,1>-minutes
+slider4:0<0,60,1>-seconds
+
+in_pin:none
+out_pin:none
+
+@init
+ext_noinit = 1; // don't call @init on transport change
+
+@serialize
+file_var(0, proj_open_seconds);
+
+@block
+sr_ticker += samplesblock;
+sr_ticker > srate ? 
+(
+proj_open_seconds += 1; sr_ticker -= srate;
+temp_secs = proj_open_seconds;
+days = (temp_secs / 86400)|0; temp_secs -= days * 86400;
+hours = (temp_secs / 3600)|0; temp_secs -= hours * 3600;
+minutes = (temp_secs / 60)|0; temp_secs -= minutes * 60;
+seconds = temp_secs;
+slider1 = days; slider2 = hours; slider3 = minutes; slider4 = seconds;
+sliderchange(slider1); 
+sliderchange(slider2);
+sliderchange(slider3);
+sliderchange(slider4);
+);
+
+@gfx 222 70
+fontsize=gfx_h*1.8/3|0;
+gfx_r=0; gfx_g=1; gfx_b=0; gfx_a=1;
+gfx_setfont(1,"Arial", fontsize);
+gfx_x =13; gfx_y =gfx_h/5|0;
+//gfx_printf("%03d:%02d:%02d:%02d", days, hours, minutes, seconds);
+gfx_printf("%01d:%02d:%02d:%02d", days, hours, minutes, seconds);

@@ -1,0 +1,1435 @@
+// (C) 2006, Michael Gruhn.
+
+// NO WARRANTY IS GRANTED. THIS PLUG-IN IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+// WARRANTY OF ANY KIND. NO LIABILITY IS GRANTED, INCLUDING, BUT NOT LIMITED TO,
+// ANY DIRECT OR INDIRECT,  SPECIAL,  INCIDENTAL OR CONSEQUENTIAL DAMAGE ARISING
+// OUT OF  THE  USE  OR INABILITY  TO  USE  THIS PLUG-IN,  COMPUTER FAILTURE  OF
+// MALFUNCTION INCLUDED.  THE USE OF THE SOURCE CODE,  EITHER  PARTIALLY  OR  IN
+// TOTAL, IS ONLY GRANTED,  IF USED IN THE SENSE OF THE AUTHOR'S INTENTION,  AND
+// USED WITH ACKNOWLEDGEMENT OF THE AUTHOR. FURTHERMORE IS THIS PLUG-IN A  THIRD
+// PARTY CONTRIBUTION,  EVEN IF INCLUDED IN REAPER(TM),  COCKOS INCORPORATED  OR
+// ITS AFFILIATES HAVE NOTHING TO DO WITH IT.  LAST BUT NOT LEAST, BY USING THIS
+// PLUG-IN YOU RELINQUISH YOUR CLAIM TO SUE IT'S AUTHOR, AS WELL AS THE CLAIM TO
+//tags: equalizer
+//author: LOSER
+//Skin: Gil Fernandes+Pan+Saturador
+
+
+desc:EQ Native
+
+filename:0,eq.png
+filename:1,s1.png
+filename:2,s2_1.png
+filename:3,s2_2.png
+filename:4,s2.png
+filename:5,s2_3.png
+filename:6,s2_4.png
+
+
+
+
+slider1:150<0,1000,5>-HPF (Hz)
+slider2:420<0,1000,1>-Band 1 (Hz)
+slider3:0.5<.5,10,0.1>-Q 1
+slider4:0<-12,6,0.5>-Gain 1 (dB)
+slider5:900<900,6000,1>-Band 2 (Hz)
+slider6:0.5<.5,10,0.1>-Q 2
+slider7:0<-12,6,0.5>-Gain 2 (dB)
+slider8:5000<5000,10000,1>-Band 3 (Hz)
+slider9:0.5<.5,10,0.1>-Q 3
+slider10:0<-12,6,0.5>-Gain 3 (dB)
+slider11:9000<9000,22000,1>-Band 4 (Hz)
+slider12:0.5<.5,10,0.1>-Q 4
+slider13:0<-12,6,0.5>-Gain 4 (dB)
+slider14:20000<10000,22000,5>-LPF (Hz)
+slider15:0<-12,12,0.5>-Output Gain (dB)
+slider16:70<0,100,1>-noparameter
+slider17:0<-100,100,0.1>-Pan
+slider18:0<-6,6,0.5>-Pan Width
+
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+
+@init
+HOLDTIME = srate/128;
+
+r1Timer = 0;
+r2Timer = HOLDTIME/2;
+
+gr_meter=1;
+gr_meter_decay = exp(1/(1*srate));
+
+pan=0.01*slider17;
+
+cDcAdd = 10^-30; 
+cDenorm = 10^-30;
+  gfx_clear = 1
+
+@slider
+
+//pan
+
+panlaw=exp(slider18*AMP_DB_i);
+pancomp=(panlaw > 1.0 ? 1.0/panlaw : panlaw);
+dpan=0.0;
+
+
+//sat
+foo=slider16/200*$pi;
+bar = sin(slider16/230*$pi);
+
+//EQ
+  gain = 10^(slider15/20);
+
+  a0 = 1;
+  s0 = 1;
+  q0 = 1 / (sqrt((a0 + 1/a0)*(1/s0 - 1) + 2));
+  w00 = 2 * $pi * slider1/srate;
+  cosw00 = cos(w00);
+  sinw00 = sin(w00);
+  alpha0 = sinw00 / (2 * q0);
+
+  b00 = (1 + cosw00)/2;
+  b10 = -(1 + cosw00);
+  b20 = (1 + cosw00)/2;
+  a00 = 1 + alpha0;
+  a10 = -2 * cosw00;
+  a20 = 1 - alpha0;
+  b00 /= a00;
+  b10 /= a00;
+  b20 /= a00;
+  a10 /= a00;
+  a20 /= a00;
+
+  a1 = (10^(slider4/40));
+  q1 = slider3;
+  w01 = 2 * $pi * slider2/srate;
+  cosw01 = cos(w01);
+  sinw01 = sin(w01);
+  alpha1 = sinw01 / (2 * q1);
+
+  b01 = 1 + alpha1 * a1;
+  b11 = -2 * cosw01;
+  b21 = 1 - alpha1 * a1;
+  a01 = 1 + alpha1 / a1;
+  a11 = -2 * cosw01;
+  a21 = 1 - alpha1 / a1;
+  b01 /= a01;
+  b11 /= a01;
+  b21 /= a01;
+  a11 /= a01;
+  a21 /= a01;
+
+  a3 = (10^(slider7/40));
+  q3 = slider6;
+  w03 = 2 * $pi * slider5/srate;
+  cosw03 = cos(w03);
+  sinw03 = sin(w03);
+  alpha3 = sinw03 / (2 * q3);
+
+  b03 = 1 + alpha3 * a3;
+  b13 = -2 * cosw03;
+  b23 = 1 - alpha3 * a3;
+  a03 = 1 + alpha3 / a3;
+  a13 = -2 * cosw03;
+  a23 = 1 - alpha3 / a3;
+  b03 /= a03;
+  b13 /= a03;
+  b23 /= a03;
+  a13 /= a03;
+  a23 /= a03;
+
+  a5 = (10^(slider10/40));
+  q5 = slider9;
+  w05 = 2 * $pi * slider8/srate;
+  cosw05 = cos(w05);
+  sinw05 = sin(w05);
+  alpha5 = sinw05 / (2 * q5);
+
+  b05 = 1 + alpha5 * a5;
+  b15 = -2 * cosw05;
+  b25 = 1 - alpha5 * a5;
+  a05 = 1 + alpha5 / a5;
+  a15 = -2 * cosw05;
+  a25 = 1 - alpha5 / a5;
+  b05 /= a05;
+  b15 /= a05;
+  b25 /= a05;
+  a15 /= a05;
+  a25 /= a05;
+
+  a7 = (10^(slider13/40));
+  q7 = slider12;
+  w07 = 2 * $pi * slider11/srate;
+  cosw07 = cos(w07);
+  sinw07 = sin(w07);
+  alpha7 = sinw07 / (2 * q7);
+
+  b07 = 1 + alpha7 * a7;
+  b17 = -2 * cosw07;
+  b27 = 1 - alpha7 * a7;
+  a07 = 1 + alpha7 / a7;
+  a17 = -2 * cosw07;
+  a27 = 1 - alpha7 / a7;
+  b07 /= a07;
+  b17 /= a07;
+  b27 /= a07;
+  a17 /= a07;
+  a27 /= a07;
+
+
+  a9 = 1;
+  s9 = 2;
+  q9 = 1 / (sqrt((a9 + 1/a9)*(1/s9 - 1) + 2));
+  w09 = 2 * $pi * slider14/srate;
+  cosw09 = cos(w09);
+  sinw09 = sin(w09);
+  alpha9 = sinw09 / (2 * q9);
+
+  b09 = (1 - cosw09)/2;
+  b19 = (1 - cosw09);
+  b29 = (1 - cosw09)/2;
+  a09 = 1 + alpha9;
+  a19 = -2 * cosw09;
+  a29 = 1 - alpha9;
+  b09 /= a09;
+  b19 /= a09;
+  b29 /= a09;
+  a19 /= a09;
+  a29 /= a09;
+ 
+ 
+//pan  
+@block
+
+dpan=0.0;
+
+ddb=(tgtdb-db)/db_chg_splpos;
+
+pan_chg_splpos=slider_next_chg(2, tgtpan);
+pan_chg_splpos > 0 ? 
+(
+  pan=0.01*slider17;
+) : (
+  tgtpan = slider17;
+  pan_chg_splpos = samplesblock;
+);
+dpan=(tgtpan*0.01-pan)/pan_chg_splpos;
+  
+
+@sample
+
+//pan
+
+
+cnt == pan_chg_splpos ? 
+(
+  dpan=0.0;
+  pan_chg_splpos=slider_next_chg(2, tgtpan);
+  pan_chg_splpos > cnt ? 
+  (
+    dpan=(tgtpan*0.01-pan)/(pan_chg_splpos-cnt);
+  );
+);
+adj=exp(db*AMP_DB_i);
+panlaw != 1.0 ? 
+(
+  panlaw > 1.0 ? adj *= panlaw;
+  panatt = abs(pan);
+  adj *= pancomp+(1.0-pancomp)*(2.0/(2.0-panatt)-1.0);
+);
+
+adj0=adj1=adj;
+pan < 0.0 ? adj1 *= 1.0+pan;
+pan > 0.0 ? adj0 *= 1.0-pan;
+
+spl0 *= adj0;
+spl1 *= adj1;
+
+db += ddb;
+pan += dpan;
+cnt += 1;;
+cnt += 1;
+
+
+
+//sat
+  slider16 ? (
+  spl0 = min(max( sin(max(min(spl0,1),-1)*foo)/bar ,-1) ,1);
+  spl1 = min(max( sin(max(min(spl1,1),-1)*foo)/bar ,-1) ,1);
+  );
+
+//Eq
+  slider1 != 0 ? (
+  ospl0 = spl0;
+  spl0 = b00 * spl0 + b10 * xl10 + b20 * xl20 - a10 * yl10 - a20 * yl20;
+  xl20 = xl10;
+  xl10 = ospl0;
+  yl20 = yl10;
+  yl10 = abs(spl0) < cDenorm ? 0 : spl0;
+
+  ospl1 = spl1;
+  spl1 = b00 * spl1 + b10 * xr10 + b20 * xr20 - a10 * yr10 - a20 * yr20;
+  xr20 = xr10;
+  xr10 = ospl1;
+  yr20 = yr10;
+  yr10 = abs(spl1) < cDenorm ? 0 : spl1;
+  );
+
+
+  spl0 += cDcAdd;
+  spl1 += cDcAdd;
+
+
+  slider4 != 0 && slider2 != 0 ? (
+  ospl0 = spl0;
+  spl0 = b01 * spl0 + b11 * xl11 + b21 * xl21 - a11 * yl11 - a21 * yl21;
+  xl21 = xl11;
+  xl11 = ospl0;
+  yl21 = yl11;
+  yl11 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b01 * spl1 + b11 * xr11 + b21 * xr21 - a11 * yr11 - a21 * yr21;
+  xr21 = xr11;
+  xr11 = ospl1;
+  yr21 = yr11;
+  yr11 = spl1;
+  );
+
+  slider7 && slider5 != 0 ? (
+  ospl0 = spl0;
+  spl0 = b03 * spl0 + b13 * xl13 + b23 * xl23 - a13 * yl13 - a23 * yl23;
+  xl23 = xl13;
+  xl13 = ospl0;
+  yl23 = yl13;
+  yl13 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b03 * spl1 + b13 * xr13 + b23 * xr23 - a13 * yr13 - a23 * yr23;
+  xr23 = xr13;
+  xr13 = ospl1;
+  yr23 = yr13;
+  yr13 = spl1;
+  );
+
+  slider10 && slider8 != 0 ? (
+  ospl0 = spl0;
+  spl0 = b05 * spl0 + b15 * xl15 + b25 * xl25 - a15 * yl15 - a25 * yl25;
+  xl25 = xl15;
+  xl15 = ospl0;
+  yl25 = yl15;
+  yl15 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b05 * spl1 + b15 * xr15 + b25 * xr25 - a15 * yr15 - a25 * yr25;
+  xr25 = xr15;
+  xr15 = ospl1;
+  yr25 = yr15;
+  yr15 = spl1;
+  );
+
+  slider13 && slider11 != 0 ? (
+  ospl0 = spl0;
+  spl0 = b07 * spl0 + b17 * xl17 + b27 * xl27 - a17 * yl17 - a27 * yl27;
+  xl27 = xl17;
+  xl17 = ospl0;
+  yl27 = yl17;
+  yl17 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b07 * spl1 + b17 * xr17 + b27 * xr27 - a17 * yr17 - a27 * yr27;
+  xr27 = xr17;
+  xr17 = ospl1;
+  yr27 = yr17;
+  yr17 = spl1;
+  );
+
+
+  slider14 != 22000 ? (
+  ospl0 = spl0;
+  spl0 = b09 * spl0 + b19 * xl19 + b29 * xl29 - a19 * yl19 - a29 * yl29;
+  xl29 = xl19;
+  xl19 = ospl0;
+  yl29 = yl19;
+  yl19 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b09 * spl1 + b19 * xr19 + b29 * xr29 - a19 * yr19 - a29 * yr29;
+  xr29 = xr19;
+  xr19 = ospl1;
+  yr29 = yr19;
+  yr19 = spl1;
+  );
+     
+
+  spl0 *= gain;
+  spl1 *= gain;
+
+@gfx 940 231
+ gfx_setfont(1,"Arial",14,'a');
+
+mouse_cap > 0 ? (
+  mouseon == 0 ? (
+    mouseclick = 1;
+    mouse_cap == 2 ? val=1.0 : val = 5;
+
+            //pan
+            (mouse_x>=857&&mouse_x<=908&&mouse_y>=125&&mouse_y<=190) ? (mouseon=17;mouseclick=17;);
+            );
+            
+            
+             //Pan
+            
+            mouseon == 17 ? (
+             mouse_y < saveY ? slider17 = max(-100,slider17-val);
+             mouse_y > saveY ? slider17 = min(100,slider17+val);
+             mouse_cap == 2 ? slider17 = 0;
+             
+             );
+
+    
+
+mouse_cap > 0 ? (
+  mouseon == 0 ? (
+    mouseclick = 1;
+    mouse_cap == 2 ? val=1.0 : val = 60;
+    //HPF
+    (mouse_x>=38&&mouse_x<=108&&mouse_y>=126&&mouse_y<=180) ? (mouseon=1;mouseclick=1;);
+    //LPF 
+    (mouse_x>=89&&mouse_x<=140&&mouse_y>=45&&mouse_y<=90) ?   (mouseon=14;mouseclick=250;);
+    //Freq Low 1
+    (mouse_x>=180&&mouse_x<=245&&mouse_y>=45&&mouse_y<=90) ? (mouseon=2;mouseclick=2;); 
+    //Freq Low/Mid 2
+    (mouse_x>=335&&mouse_x<=398&&mouse_y>=45&&mouse_y<=90) ? (mouseon=5;mouseclick=5;);
+    //Freq Mid/High 3
+    (mouse_x>=480&&mouse_x<=550&&mouse_y>=45&&mouse_y<=90) ? (mouseon=8;mouseclick=8;);
+    //Freq High 4
+    (mouse_x>=640&&mouse_x<=710&&mouse_y>=45&&mouse_y<=90) ? (mouseon=11;mouseclick=11;);
+     
+    mouse_cap == 5 ? val*=13.;
+    mouse_cap == 17 ? val*=0.3;
+    //HPF
+     );
+      mouseon == 1 ? (
+        mouse_y < saveY ? slider1 = max(0,slider1-val);
+        mouse_y > saveY ? slider1 = min(1000,slider1+val);
+        mouse_cap == 2 ? slider1 = 150;
+      );
+    
+    //LPF
+     mouseon == 14 ? (
+       mouse_y < saveY ? slider14 = max(10000,slider14-val);
+       mouse_y > saveY ? slider14 = min(22000,slider14+val);
+       mouse_cap == 2 ? slider14 = 20000;
+     );
+     
+     
+    //Freq Low 1
+     mouseon == 2 ? (
+      mouse_y < saveY ? slider2 = max(0,slider2-val);
+      mouse_y > saveY ? slider2 = min(1000,slider2+val);
+      mouse_cap == 2 ? slider2 = 420;
+      
+      );
+      
+      //Freq Low/Mid 2
+       mouseon == 5 ? (
+        mouse_y < saveY ? slider5 = max(900,slider5-val);
+        mouse_y > saveY ? slider5 = min(6000,slider5+val);
+        mouse_cap == 2 ? slider5 = 900;
+        
+        );
+        
+        //Freq Mid/high 3
+         mouseon == 8 ? (
+          mouse_y < saveY ? slider8 = max(5000,slider8-val);
+          mouse_y > saveY ? slider8 = min(10000,slider8+val);
+          mouse_cap == 2 ? slider8 = 5000;
+          
+          );
+          
+          //Freq high 4
+           mouseon == 11 ? (
+            mouse_y < saveY ? slider11 = max(9000,slider11-val);
+            mouse_y > saveY ? slider11 = min(22000,slider11+val);
+            mouse_cap == 2 ? slider11 = 9000;
+            
+            );
+            
+            mouse_cap > 0 ? (
+              mouseon == 0 ? (
+                mouseclick = 1;
+                mouse_cap == 2 ? val=10 : val = 0.5;
+            //Q Low 1
+            (mouse_x>=176&&mouse_x<=230&&mouse_y>=124&&mouse_y<=180) ? (mouseon=3;mouseclick=3;);
+            
+            //Gain Low 1
+            (mouse_x>=245&&mouse_x<=298&&mouse_y>=124&&mouse_y<=180) ? (mouseon=4;mouseclick=4;);
+            
+            //Q Low/Mid 2
+            (mouse_x>=325&&mouse_x<=380&&mouse_y>=124&&mouse_y<=180) ? (mouseon=6;mouseclick=6;);
+            
+            //Gain Low/Mid 2
+            (mouse_x>=400&&mouse_x<=455&&mouse_y>=124&&mouse_y<=180) ? (mouseon=7;mouseclick=7;);
+            
+            
+            //Q Mid/High 3
+            (mouse_x>=478&&mouse_x<=536&&mouse_y>=124&&mouse_y<=180) ? (mouseon=9;mouseclick=9;);
+            
+            //Gain Mid/High 3
+            (mouse_x>=552&&mouse_x<=610&&mouse_y>=124&&mouse_y<=180) ? (mouseon=10;mouseclick=10;);
+            
+            //Q High 4
+            (mouse_x>=638&&mouse_x<=687&&mouse_y>=124&&mouse_y<=180) ? (mouseon=12;mouseclick=12;);
+            
+            //Gain High 4
+            (mouse_x>=707&&mouse_x<=759&&mouse_y>=124&&mouse_y<=180) ? (mouseon=13;mouseclick=13;);
+            
+            //Output
+            (mouse_x>=805&&mouse_x<=860&&mouse_y>=45&&mouse_y<=90) ? (mouseon=15;mouseclick=15;);
+    
+  
+            
+            );
+            //Q Low 1
+             mouseon == 3 ? (
+              mouse_y < saveY ? slider3 = max(0.5,slider3-val);
+              mouse_y > saveY ? slider3 = min(10.0,slider3+val);
+              mouse_cap == 2 ? slider3 = 0.5;
+              
+              );
+              //Q Low/mid 2
+               mouseon == 6 ? (
+                mouse_y < saveY ? slider6 = max(0.5,slider6-val);
+                mouse_y > saveY ? slider6 = min(10.0,slider6+val);
+                mouse_cap == 2 ? slider6 = 0.5;
+                
+                );
+                //Q mid/high 3
+                 mouseon == 9 ? (
+                  mouse_y < saveY ? slider9 = max(0.5,slider9-val);
+                  mouse_y > saveY ? slider9 = min(10.0,slider9+val);
+                  mouse_cap == 2 ? slider9 = 0.5;
+                  
+                  );
+                  //Q high 4
+                   mouseon == 12 ? (
+                    mouse_y < saveY ? slider12 = max(0.5,slider12-val);
+                    mouse_y > saveY ? slider12 = min(10.0,slider12+val);
+                    mouse_cap == 2 ? slider12 = 0.5;
+                    
+                    );
+                    //Gain Low 1
+                     mouseon == 4 ? (
+                      mouse_y < saveY ? slider4 = max(-12,slider4-val);
+                      mouse_y > saveY ? slider4 = min(6.0,slider4+val);
+                      mouse_cap == 2 ? slider4 = 0;
+                      
+                      );
+                      //Gain Low/mid 2
+                       mouseon == 7 ? (
+                        mouse_y < saveY ? slider7 = max(-12,slider7-val);
+                        mouse_y > saveY ? slider7 = min(6.0,slider7+val);
+                        mouse_cap == 2 ? slider7 = 0;
+                        
+                        );
+                        //Gain mid/high 3
+                         mouseon == 10 ? (
+                          mouse_y < saveY ? slider10 = max(-12,slider10-val);
+                          mouse_y > saveY ? slider10 = min(6.0,slider10+val);
+                          mouse_cap == 2 ? slider10 = 0;
+                          
+                          );
+                          //Gain high 4
+                           mouseon == 13 ? (
+                            mouse_y < saveY ? slider13 = max(-12,slider13-val);
+                            mouse_y > saveY ? slider13 = min(6.0,slider13+val);
+                            mouse_cap == 2 ? slider13 = 0;
+                            
+                            );
+                            //output
+                             mouseon == 15 ? (
+                              mouse_y < saveY ? slider15 = max(-12,slider15-val);
+                              mouse_y > saveY ? slider15 = min(12,slider15+val);
+                              mouse_cap == 2 ? slider15 = 0.0;
+                              );
+                              
+                    
+                          //2
+               );
+     //3
+                 
+         );
+    
+         gain = 10^(slider15/20);
+         
+         a0 = 1;
+         s0 = 1;
+         q0 = 1 / (sqrt((a0 + 1/a0)*(1/s0 - 1) + 2));
+         w00 = 2 * $pi * slider1/srate;
+         cosw00 = cos(w00);
+         sinw00 = sin(w00);
+         alpha0 = sinw00 / (2 * q0);
+         
+         b00 = (1 + cosw00)/2;
+         b10 = -(1 + cosw00);
+         b20 = (1 + cosw00)/2;
+         a00 = 1 + alpha0;
+         a10 = -2 * cosw00;
+         a20 = 1 - alpha0;
+         b00 /= a00;
+         b10 /= a00;
+         b20 /= a00;
+         a10 /= a00;
+         a20 /= a00;
+         
+         a1 = (10^(slider4/40));
+         q1 = slider3;
+         w01 = 2 * $pi * slider2/srate;
+         cosw01 = cos(w01);
+         sinw01 = sin(w01);
+         alpha1 = sinw01 / (2 * q1);
+         
+         b01 = 1 + alpha1 * a1;
+         b11 = -2 * cosw01;
+         b21 = 1 - alpha1 * a1;
+         a01 = 1 + alpha1 / a1;
+         a11 = -2 * cosw01;
+         a21 = 1 - alpha1 / a1;
+         b01 /= a01;
+         b11 /= a01;
+         b21 /= a01;
+         a11 /= a01;
+         a21 /= a01;
+         
+         a3 = (10^(slider7/40));
+         q3 = slider6;
+         w03 = 2 * $pi * slider5/srate;
+         cosw03 = cos(w03);
+         sinw03 = sin(w03);
+         alpha3 = sinw03 / (2 * q3);
+         
+         b03 = 1 + alpha3 * a3;
+         b13 = -2 * cosw03;
+         b23 = 1 - alpha3 * a3;
+         a03 = 1 + alpha3 / a3;
+         a13 = -2 * cosw03;
+         a23 = 1 - alpha3 / a3;
+         b03 /= a03;
+         b13 /= a03;
+         b23 /= a03;
+         a13 /= a03;
+         a23 /= a03;
+         
+         a5 = (10^(slider10/40));
+         q5 = slider9;
+         w05 = 2 * $pi * slider8/srate;
+         cosw05 = cos(w05);
+         sinw05 = sin(w05);
+         alpha5 = sinw05 / (2 * q5);
+         
+         b05 = 1 + alpha5 * a5;
+         b15 = -2 * cosw05;
+         b25 = 1 - alpha5 * a5;
+         a05 = 1 + alpha5 / a5;
+         a15 = -2 * cosw05;
+         a25 = 1 - alpha5 / a5;
+         b05 /= a05;
+         b15 /= a05;
+         b25 /= a05;
+         a15 /= a05;
+         a25 /= a05;
+         
+         a7 = (10^(slider13/40));
+         q7 = slider12;
+         w07 = 2 * $pi * slider11/srate;
+         cosw07 = cos(w07);
+         sinw07 = sin(w07);
+         alpha7 = sinw07 / (2 * q7);
+         
+         b07 = 1 + alpha7 * a7;
+         b17 = -2 * cosw07;
+         b27 = 1 - alpha7 * a7;
+         a07 = 1 + alpha7 / a7;
+         a17 = -2 * cosw07;
+         a27 = 1 - alpha7 / a7;
+         b07 /= a07;
+         b17 /= a07;
+         b27 /= a07;
+         a17 /= a07;
+         a27 /= a07;
+         
+         
+         a9 = 1;
+         s9 = 2;
+         q9 = 1 / (sqrt((a9 + 1/a9)*(1/s9 - 1) + 2));
+         w09 = 2 * $pi * slider14/srate;
+         cosw09 = cos(w09);
+         sinw09 = sin(w09);
+         alpha9 = sinw09 / (2 * q9);
+         
+         b09 = (1 - cosw09)/2;
+         b19 = (1 - cosw09);
+         b29 = (1 - cosw09)/2;
+         a09 = 1 + alpha9;
+         a19 = -2 * cosw09;
+         a29 = 1 - alpha9;
+         b09 /= a09;
+         b19 /= a09;
+         b29 /= a09;
+         a19 /= a09;
+         a29 /= a09;
+         
+         foo=slider16/200*$pi;
+         bar = sin(slider16/230*$pi);
+         
+            
+    
+      saveX=mouse_X;
+      saveY=mouse_y;
+      
+    
+    ): (done=0;mouseon=0;);
+        
+ 
+   
+  gfx_a=1;
+  gfx_x=gfx_y=0;
+  
+     rotation_x_offset = 1;
+     rotation_y_offset = 1;
+     
+  coordinatelist=1000000; 
+
+ //posição da imagem de fundo (background)
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=977;
+  coordinatelist[3]=230;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=940;
+  coordinatelist[7]=231;
+  coordinatelist[8]=0;
+  coordinatelist[9]=0; 
+  gfx_blitext(0,coordinatelist,0);
+  
+
+  //códigos das imagens do knobs
+  
+  //high cut
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=78;
+  coordinatelist[5]=36;
+  coordinatelist[6]=70;
+  coordinatelist[7]=70;
+  
+  //hIGHT CUT
+  gfx_blitext(2,coordinatelist,2.1+slider14/3150*1.3);
+  
+  //Output
+  coordinatelist[4]=795;
+  gfx_blitext(2,coordinatelist,2.5+slider15/6.1*1.3);
+  
+  
+  //Band1
+  coordinatelist[4]=170;
+  gfx_blitext(3,coordinatelist,6.2+slider2/3100*15.9);
+  
+  //Band2
+  coordinatelist[4]=326;
+  gfx_blitext(4,coordinatelist,5.4+slider5/9000*8.79);
+  
+  //Band3
+  coordinatelist[4]=477;
+  gfx_blitext(5,coordinatelist,7.4+slider8/9000*9.1);
+  
+  //Band4
+  coordinatelist[4]=632;
+  gfx_blitext(6,coordinatelist,2.6+slider11/12100*4.8);
+  
+  
+  
+  
+  //Low cut
+  coordinatelist[5]=120;
+  coordinatelist[4]=36;
+  gfx_blitext(2,coordinatelist,6.2+slider1/3100*15.9);
+  
+  
+  
+  //Q1
+  coordinatelist[4]=170;
+  gfx_blitext(3,coordinatelist,3.3+slider3/1.9+2.6);
+  
+  //Gain 1
+  coordinatelist[4]=243;
+  gfx_blitext(3,coordinatelist,3.3+slider4/6.4*1.8)
+  ;
+  
+  
+  
+  //Q2
+  coordinatelist[4]=325;
+  gfx_blitext(4,coordinatelist,3.3+slider6/1.9+2.6);
+  
+  //Gain 2
+  coordinatelist[4]=396;
+  gfx_blitext(4,coordinatelist,3.3+slider7/6.4*1.8);
+  
+  
+  //Q3
+  coordinatelist[4]=477;
+  gfx_blitext(5,coordinatelist,3.3+slider9/1.9+2.6);
+  
+  //Gain 3
+  coordinatelist[4]=547;
+  gfx_blitext(5,coordinatelist,3.3+slider10/6.4*1.8);
+  
+  
+  
+  //Q4
+  coordinatelist[4]=632;
+  gfx_blitext(6,coordinatelist,3.3++slider12/1.9+2.6);
+  
+  //Gain 4
+  coordinatelist[4]=703;
+  gfx_blitext(6,coordinatelist,3.3+slider13/6.4*1.8);
+  
+  
+  //Pan
+  coordinatelist[4]=848;
+  gfx_blitext(2,coordinatelist,2.41+slider17/47.2*1.47);
+  
+  
+  
+ 
+            gfx_r = gfx_g = gfx_b = 0.85;
+            //LPF
+            gfx_a = 0.9;
+            gfx_x = 48;
+            gfx_y = 63;
+            gfx_drawchar($'L');
+            gfx_drawchar($'P');
+            gfx_drawchar($'F');
+            //HPF
+            gfx_x = 114;
+            gfx_y = 150;
+            gfx_drawchar($'H');
+            gfx_drawchar($'P');
+            gfx_drawchar($'F');
+            
+     
+            
+            //Nome Banda 1
+            gfx_x = 265;
+            gfx_y = 37;
+            gfx_drawchar($'B');
+            gfx_drawchar($'a');
+            gfx_drawchar($'n');
+            gfx_drawchar($'d');
+            gfx_drawchar($' ');
+            gfx_drawchar($'1');
+            
+            //Nome Banda 2
+            gfx_x = 418;
+            gfx_drawchar($'B');
+            gfx_drawchar($'a');
+            gfx_drawchar($'n');
+            gfx_drawchar($'d');
+            gfx_drawchar($' ');
+            gfx_drawchar($'2');
+            
+            //Nome Banda 3
+            gfx_x = 572;
+            gfx_drawchar($'B');
+            gfx_drawchar($'a');
+            gfx_drawchar($'n');
+            gfx_drawchar($'d');
+            gfx_drawchar($' ');
+            gfx_drawchar($'3');
+            
+            //Nome Banda 4
+            gfx_x = 726;
+            gfx_drawchar($'B');
+            gfx_drawchar($'a');
+            gfx_drawchar($'n');
+            gfx_drawchar($'d');
+            gfx_drawchar($' ');
+            gfx_drawchar($'4');
+            
+            
+            //Nome Filter
+                 gfx_x = 100;
+                 gfx_y = 27;
+                 gfx_drawchar($'F');
+                 gfx_drawchar($'i');
+                 gfx_drawchar($'l');
+                 gfx_drawchar($'t');
+                 gfx_drawchar($'e');
+                 gfx_drawchar($'r');
+                 gfx_drawchar($'s');
+          
+            //Freq 1
+            gfx_x = 200;
+    
+            gfx_drawchar($'H');
+            gfx_drawchar($'z');
+
+            //Freq  2
+                 gfx_a = 0.9;
+                 gfx_x = 354;
+                 gfx_drawchar($'K');
+                 gfx_drawchar($'h');
+                 gfx_drawchar($'z');
+
+            //Freq  3
+              gfx_a = 0.9;
+              gfx_x = 503;
+            gfx_drawchar($'K');
+            gfx_drawchar($'h');
+            gfx_drawchar($'z');
+ 
+             //Freq  4
+                gfx_a = 0.9;
+                gfx_x = 660;
+            gfx_drawchar($'K');
+            gfx_drawchar($'h');
+            gfx_drawchar($'z');
+            
+            //Q low 1
+            gfx_a = 0.9;
+            gfx_x = 202;
+            gfx_y = 110;
+            gfx_drawchar($'Q');
+
+          //Gain low 1
+            gfx_x = 268;
+          
+            gfx_drawchar($'G');
+            gfx_drawchar($'a');
+            gfx_drawchar($'i');
+            gfx_drawchar($'n');
+          
+          //Q 2
+            gfx_x = 358;
+            gfx_drawchar($'Q');
+              
+          //Gain 2
+            gfx_x = 421;
+            gfx_drawchar($'G');
+            gfx_drawchar($'a');
+            gfx_drawchar($'i');
+            gfx_drawchar($'n');
+            
+            //Q 3
+              gfx_x = 509;
+              gfx_drawchar($'Q');
+                
+            //Gain mid/high 3
+              gfx_x = 572;
+              gfx_drawchar($'G');
+              gfx_drawchar($'a');
+              gfx_drawchar($'i');
+              gfx_drawchar($'n');
+
+            
+              //Q 4
+                gfx_x = 663;
+                gfx_drawchar($'Q');
+                  
+              //Gain4
+                gfx_x = 727;
+                gfx_drawchar($'G');
+                gfx_drawchar($'a');
+                gfx_drawchar($'i');
+                gfx_drawchar($'n');
+                
+                  //Output
+                  gfx_x = 868;
+                  gfx_y = 66;
+                  gfx_drawchar($'O');
+                  gfx_drawchar($'u');
+                  gfx_drawchar($'t');
+                  gfx_drawchar($'p');
+                  gfx_drawchar($'u');
+                  gfx_drawchar($'t');
+ 
+                    //Pan
+                    gfx_x = 812;
+                     gfx_y = 150;
+                      gfx_drawchar($'P');
+                      gfx_drawchar($'a');
+                      gfx_drawchar($'n');
+              
+          
+                  //versão
+                  gfx_x = 880;
+                  gfx_y = 22;
+                  gfx_drawchar($'V');
+                  gfx_drawchar($'1');
+                  gfx_drawchar($'.');
+                  gfx_drawchar($'2');
+                  
+                  //nome
+                  
+                    gfx_x = 825;
+                    gfx_y = 215;
+                    gfx_drawchar($'G');
+                    gfx_drawchar($'i');
+                    gfx_drawchar($'l');
+                    gfx_drawchar($' ');
+                    gfx_drawchar($'F');
+                    gfx_drawchar($'e');
+                    gfx_drawchar($'r');
+                    gfx_drawchar($'n');
+                    gfx_drawchar($'a');
+                    gfx_drawchar($'n');
+                    gfx_drawchar($'d');
+                    gfx_drawchar($'e');
+                    gfx_drawchar($'s');  
+                    
+                    //nome
+        
+                      gfx_x = 422;
+                      gfx_drawchar($'E');
+                      gfx_drawchar($'Q');
+                      gfx_drawchar($' ');
+                      gfx_drawchar($'4');
+                      gfx_drawchar($' ');
+                      gfx_drawchar($'B');
+                      gfx_drawchar($'a');
+                      gfx_drawchar($'n');
+                      gfx_drawchar($'d');
+                      gfx_drawchar($'s');
+
+   
+   
+   //código das bordas pretas (visor)
+            
+    //Borda Display HPF
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_a = 1;
+    gfx_x = 50;
+    gfx_y = 202;
+    gfx_rectto(96,186);
+    
+    
+    //Borda Display Freq Low 1
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 258;
+    gfx_y = 62;
+    gfx_rectto(306,81);
+    
+    //Borda Display Q Low 1
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 184;
+    gfx_y = 202;
+    gfx_rectto(228,186);
+    
+    //Borda Display Gain Low/mid 1
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 255;
+    gfx_y = 202;
+    gfx_rectto(305,186);
+    
+    //Borda Display Freq Low/mid 2
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 412;
+    gfx_y = 62;
+    gfx_rectto(460,81);
+    
+    //Borda Display Q Low/mid 2
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 382;
+    gfx_y = 202;
+    gfx_rectto(337,186);
+    
+    //Borda Display Gain Low/mid 2
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 457;
+    gfx_y = 202;
+    gfx_rectto(408,186);
+    
+    //Borda Display Freq mid/high 3
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 566;
+    gfx_y = 62;
+    gfx_rectto(614,81);
+    
+    //Borda Display Q mid/high 3
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 536;
+    gfx_y = 202;
+    gfx_rectto(490,186);
+    
+    //Borda Display Gain mid/high 3
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 560;
+    gfx_y = 202;
+    gfx_rectto(611,186);
+    
+    //Borda Display Freq high 4
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 721;
+    gfx_y = 62;
+    gfx_rectto(769,81);
+    
+    //Borda Display Gain high 4
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 765;
+    gfx_y = 202;
+    gfx_rectto(715,186);
+    
+    //Borda Display Q high 4
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 690;
+    gfx_y = 202;
+    gfx_rectto(646,186);
+    
+    //Borda Display Output
+    gfx_r = gfx_g = gfx_b = 0;
+    gfx_x = 853;
+    gfx_y = 104;
+    gfx_rectto(808,122);
+    
+    //Borda Display Pan
+       gfx_r = gfx_g = gfx_b = 0;
+       gfx_x = 906;
+       gfx_y = 186;
+       gfx_rectto(863,203);
+       
+       //Borda Display LPF
+       gfx_r = gfx_g = gfx_b = 0;
+       gfx_x = 90;
+       gfx_y = 105;
+       gfx_rectto(140,121);
+    
+    
+  //código do display
+          
+            gfx_r=0.7;gfx_g=1.0;gfx_b=0.8;
+            gfx_r=1.0;
+          
+
+            
+            //display Freq Low 1
+              gfx_x=267;gfx_y=65;
+              gfx_drawnumber(slider2,0);
+              
+              //display  freq Low/mid 2
+                gfx_x=420;
+                gfx_drawnumber(slider5,0);
+              
+              //display Freq mid/high 3
+                gfx_x=574;
+                gfx_drawnumber(slider8,0);
+              
+              //display Freq high 4
+                gfx_x=730;
+                gfx_drawnumber(slider11,0);
+              
+            
+            //display  Q Low 1
+              gfx_x=194;gfx_y=187;
+              gfx_drawnumber(slider3,1);
+              
+              //display gain Low 1
+                gfx_x=266;
+                gfx_drawnumber(slider4,1);
+              
+                
+                //display q Low/mid 2
+                  gfx_x=347;
+                  gfx_drawnumber(slider6,1);
+                
+                //display gain Low/mid 2
+                  gfx_x=417;
+                  gfx_drawnumber(slider7,1);
+                  
+                  
+                  //display Q mid/high 3
+                    gfx_x=503;
+                    gfx_drawnumber(slider9,1);
+                
+                //display gain mid/high 3
+                  gfx_x=571;
+                  gfx_drawnumber(slider10,1);
+                  
+            
+                    //display Q high 4
+                      gfx_x=657;
+                      gfx_drawnumber(slider12,1);
+                  
+                  //display gain high 4
+                    gfx_x=725;
+                    gfx_drawnumber(slider13,1);
+                    
+                 
+                    
+                    //display HPF
+                      gfx_x=60;gfx_y=187;
+                      gfx_drawnumber(slider1,0);
+                    
+                    //display LPF
+                      gfx_x=100;gfx_y=106;
+                      gfx_drawnumber(slider14,0);
+                      
+                    //display  output
+                      gfx_x=818;gfx_y=107;
+                      gfx_drawnumber(slider15,1);
+                      
+                      //display  pan
+                        gfx_x=873;gfx_y=188;
+                        gfx_drawnumber(slider17,0);
+                    
+          
+  
+  
+                       gfx_a=0.4;
+                       //knobs Arc Grey
+                       gfx_r=0.9;
+                       gfx_g=0.9;
+                       gfx_b=0.9;
+                      
+                       //LPF
+                 
+                    gfx_arc(114,71,25,12.2+slider14/3150*1.3, 21.4);
+                    gfx_arc(114,71,26,12.2+slider14/3150*1.3, 21.4);
+                    gfx_arc(114,71,27,12.2+slider14/3150*1.3, 21.4);
+                     gfx_arc(114,71,25,12.2+slider14/3150*1.3, 21.4);
+                      gfx_arc(114,71,26,12.2+slider14/3150*1.3, 21.4);
+                      gfx_arc(114,71,27,12.2+slider14/3150*1.3, 21.4);
+                      gfx_arc(114,71,28,12.2+slider14/3150*1.3, 21.4);
+                      gfx_arc(114,71,28,12.2+slider14/3150*1.3, 21.4);
+                         
+                                     
+                                     
+                     //HPF
+                     
+                     gfx_arc(71,155,25,10.06+slider1/3100*15.9, 10); 
+                     gfx_arc(71,155,26,10.06+slider1/3100*15.9, 10); 
+                     gfx_arc(71,155,27,10.06+slider1/3100*15.9, 10); 
+                     gfx_arc(71,155,28,10.06+slider1/3100*15.9, 10);
+                      gfx_arc(71,155,25,10.06+slider1/3100*15.9, 10); 
+                        gfx_arc(71,155,26,10.06+slider1/3100*15.9, 10);
+                        gfx_arc(71,155,27,10.06+slider1/3100*15.9, 10);
+                         gfx_arc(71,155,28,10.06+slider1/3100*15.9, 10);
+                                
+                           //Output
+                           gfx_arc(830,71,25,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,26,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,27,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,28,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,25,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,26,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,27,12.7+slider15/6.1*1.3, 10);
+                           gfx_arc(830,71,28,12.7+slider15/6.1*1.3, 10);
+                           
+                           //PAn
+                           gfx_arc(883,155,25,12.57+slider17/47.2*1.47, 12.5);
+                           gfx_arc(883,155,26,12.57+slider17/47.2*1.47, 12.5);
+                           gfx_arc(883,155,27,12.57+slider17/47.2*1.47, 12.5);
+                           gfx_arc(883,155,28,12.57+slider17/47.2*1.47, 12.5);
+                           gfx_arc(883,155,26,12.57+slider17/47.2*1.47, 12.5);
+                           gfx_arc(883,155,27,12.57+slider17/47.2*1.47, 12.5);
+                           gfx_arc(883,155,28,12.57+slider17/47.2*1.47, 12.5);
+                           
+       
+                           
+                                 
+                       //knobs Arc Purple
+                       gfx_r=0.6;
+                       gfx_g=0;
+                       gfx_b=1;                                 
+                               //Freq 1
+                               gfx_arc(205.4,71,25,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,26,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,27,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,28,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,25,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,26,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,27,10.06+slider2/3100*15.9, 10);
+                               gfx_arc(205.4,71,28,10.06+slider2/3100*15.9, 10);
+                               
+                               
+                               //Q1
+                               gfx_arc(205,155,25,7.2+slider3/1.9+2.6, 10);
+                               gfx_arc(205,155,26,7.2+slider3/1.9+2.6, 10);
+                               gfx_arc(205,155,27,7.2+slider3/1.9+2.6, 10);
+                               gfx_arc(205,155,28,7.2+slider3/1.9+2.6, 10);
+                               gfx_arc(205,155,25,7.2+slider3/1.9+2.6, 10);
+                                                      gfx_arc(205,155,26,7.2+slider3/1.9+2.6, 10);
+                                                      gfx_arc(205,155,27,7.2+slider3/1.9+2.6, 10);
+                                                      gfx_arc(205,155,28,7.2+slider3/1.9+2.6, 10);
+                                        
+                 
+                               //Gain 1
+                               gfx_arc(279,155,25,13.5+slider4/6.4*1.8, 10);
+                               gfx_arc(279,155,26,13.5+slider4/6.4*1.8, 10);
+                               gfx_arc(279,155,27,13.5+slider4/6.4*1.8, 10);
+                               gfx_arc(279,155,28,13.5+slider4/6.4*1.8, 10);
+                               gfx_arc(279,155,25,13.5+slider4/6.4*1.8, 10);
+                                                     gfx_arc(279,155,26,13.5+slider4/6.4*1.8, 10);
+                                                     gfx_arc(279,155,27,13.5+slider4/6.4*1.8, 10);
+                                                     gfx_arc(279,155,28,13.5+slider4/6.4*1.8, 10);
+                                 //Arc Green                    
+                               gfx_r=0.3;
+                               gfx_g=0.7;
+                               gfx_b=0;                                 
+                                //Freq 2
+                                gfx_arc(361.4,71,25,9.21+slider5/9000*8.79, 10);
+                                gfx_arc(361.4,71,26,9.21+slider5/9000*8.79, 10);
+                                gfx_arc(361.4,71,27,9.21+slider5/9000*8.79, 10);
+                                gfx_arc(361.4,71,28,9.21+slider5/9000*8.79, 10);
+                                gfx_arc(361.4,71,25,9.21+slider5/9000*8.79, 10);
+                                   gfx_arc(361.4,71,26,9.21+slider5/9000*8.79, 10);
+                                   gfx_arc(361.4,71,27,9.21+slider5/9000*8.79, 10);
+                                   gfx_arc(361.4,71,28,9.21+slider5/9000*8.79, 10);
+                                   
+                                   
+                                   //Q2
+                                   gfx_arc(360,155,25,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,26,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,27,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,28,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,25,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,26,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,27,7.2+slider6/1.9+2.6, 10);
+                                   gfx_arc(360,155,28,7.2+slider6/1.9+2.6, 10);
+                                   
+                                   //Gain 2
+                                   gfx_arc(431,155,25,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,26,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,27,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,28,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,25,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,26,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,27,13.5+slider7/6.4*1.8, 10);
+                                   gfx_arc(431,155,28,13.5+slider7/6.4*1.8, 10);
+                                   
+                                   //Arc Blue
+                                   gfx_r=0.1;
+                                   gfx_g=0.2;
+                                   gfx_b=0.9;
+                                   
+                                    //Freq 3
+                                    gfx_arc(512.4,71,25,5+slider8/9000*9.1, 10);
+                                    gfx_arc(512.4,71,26,5+slider8/9000*9.1, 10);
+                                    gfx_arc(512.4,71,27,5+slider8/9000*9.1, 10);
+                                    gfx_arc(512.4,71,28,5+slider8/9000*9.1, 10);
+                                    gfx_arc(512.4,71,25,5+slider8/9000*9.1, 10);
+                                     gfx_arc(512.4,71,26,5+slider8/9000*9.1, 10);
+                                    gfx_arc(512.4,71,27,5+slider8/9000*9.1, 10);
+                                      gfx_arc(512.4,71,28,5+slider8/9000*9.1, 10);
+                                    
+                                    
+                                    
+                                    
+                                    //Q3
+                                    gfx_arc(512,155,25,7.2+slider9/1.9+2.6, 10);
+                                    gfx_arc(512,155,26,7.2+slider9/1.9+2.6, 10);
+                                    gfx_arc(512,155,27,7.2+slider9/1.9+2.6, 10);
+                                    gfx_arc(512,155,28,7.2+slider9/1.9+2.6, 10);
+                                    gfx_arc(512,155,25,7.2+slider9/1.9+2.6, 10);
+                                      gfx_arc(512,155,26,7.2+slider9/1.9+2.6, 10);
+                                      gfx_arc(512,155,27,7.2+slider9/1.9+2.6, 10);
+                                      gfx_arc(512,155,28,7.2+slider9/1.9+2.6, 10);
+                                             
+                                      //Gain 2
+                                    gfx_arc(582,155,25,13.5+slider10/6.4*1.8, 10);
+                                    gfx_arc(582,155,26,13.5+slider10/6.4*1.8, 10);
+                                    gfx_arc(582,155,27,13.5+slider10/6.4*1.8, 10);
+                                    gfx_arc(582,155,28,13.5+slider10/6.4*1.8, 10);
+                                   gfx_arc(582,155,25,13.5+slider10/6.4*1.8, 10);
+                                   gfx_arc(582,155,26,13.5+slider10/6.4*1.8, 10);
+                                   gfx_arc(582,155,27,13.5+slider10/6.4*1.8, 10);
+                                   gfx_arc(582,155,28,13.5+slider10/6.4*1.8, 10);
+                                   
+                                    //Arc Red
+                                    gfx_r=1;
+                                    gfx_g=0.0;
+                                    gfx_b=0.1;
+                                    
+                                    
+                                    //Freq 4
+                                    gfx_arc(667.4,71,25,6.5+slider11/12100*4.8, 10);
+                                    gfx_arc(667.4,71,26,6.5+slider11/12100*4.8, 10);
+                                    gfx_arc(667.4,71,27,6.5+slider11/12100*4.8, 10);
+                                    gfx_arc(667.4,71,28,6.5+slider11/12100*4.8, 10);
+     
+                                    
+                                    //Q4
+                                    gfx_arc(667,155,25,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,26,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,27,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,28,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,25,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,26,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,27,7.2+slider12/1.9+2.6, 10);
+                                    gfx_arc(667,155,28,7.2+slider12/1.9+2.6, 10);
+                                    
+                                      //Gain 2
+                                    gfx_arc(738,155,25,13.5+slider13/6.4*1.8, 10);
+                                    gfx_arc(738,155,26,13.5+slider13/6.4*1.8, 10);
+                                    gfx_arc(738,155,27,13.5+slider13/6.4*1.8, 10);
+                                    gfx_arc(738,155,28,13.5+slider13/6.4*1.8, 10);
+                                    gfx_arc(738,155,25,13.5+slider13/6.4*1.8, 10);
+                                  gfx_arc(738,155,26,13.5+slider13/6.4*1.8, 10);
+                                  gfx_arc(738,155,27,13.5+slider13/6.4*1.8, 10);
+                                  gfx_arc(738,155,28,13.5+slider13/6.4*1.8, 10);
+                                  
+                                  
+                                  
+   //info!!!
+   
+   gfx_setfont(1,"Arial Black",14,'a');
+   help.x=840;            
+   help.y=4;
+
+ gfx_r = 1; gfx_g = 0.9; gfx_b = 0; gfx_a = 0.8;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Click Here!!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +50 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+ gfx_setfont(1,"Arial",14,'a');
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 920/2; middleY = 240/2;
+  gfx_r = 0.5; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_rect(middleX-120,middleY-100,250,170);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-110; gfx_y = middleY-94;
+
+  gfx_drawstr("         Author: This effect Copyright (C) 2004 
+                 and later Cockos Incorporated
+                                License:
+         http://www.gnu.org/licenses/lgpl.html
+ 
+                       Skin: Gil Fernandes
+                     Youtube.com/Gfbeats 
+
+                            Tips (Dica):
+                        Ctrl = Fast adjust 
+                        Alt  = Slow adjust   "
+
+);
+  displayHelp *= 0.9;
+);
+                                    

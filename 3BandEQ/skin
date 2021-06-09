@@ -1,0 +1,681 @@
+// (C) 2006, Michael Gruhn.
+
+// NO WARRANTY IS GRANTED. THIS PLUG-IN IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+// WARRANTY OF ANY KIND. NO LIABILITY IS GRANTED, INCLUDING, BUT NOT LIMITED TO,
+// ANY DIRECT OR INDIRECT,  SPECIAL,  INCIDENTAL OR CONSEQUENTIAL DAMAGE ARISING
+// OUT OF  THE  USE  OR INABILITY  TO  USE  THIS PLUG-IN,  COMPUTER FAILTURE  OF
+// MALFUNCTION INCLUDED.  THE USE OF THE SOURCE CODE,  EITHER  PARTIALLY  OR  IN
+// TOTAL, IS ONLY GRANTED,  IF USED IN THE SENSE OF THE AUTHOR'S INTENTION,  AND
+// USED WITH ACKNOWLEDGEMENT OF THE AUTHOR. FURTHERMORE IS THIS PLUG-IN A  THIRD
+// PARTY CONTRIBUTION,  EVEN IF INCLUDED IN REAPER(TM),  COCKOS INCORPORATED  OR
+// ITS AFFILIATES HAVE NOTHING TO DO WITH IT.  LAST BUT NOT LEAST, BY USING THIS
+// PLUG-IN YOU RELINQUISH YOUR CLAIM TO SUE IT'S AUTHOR, AS WELL AS THE CLAIM TO
+// ENTRUST SOMEBODY ELSE WITH DOING SO.
+
+desc:3-Band EQ
+desc:3-Band EQ [LOSER]
+//tags: Skin By Gil Fernandes
+//Facebook.com/gilfernandesoficial
+//youtube.com/channel/UCr3vLl68alrE9c7WMiipU9Q
+
+//tags: equalizer
+//author: LOSER
+
+filename:0,b_1.png
+filename:1,s1.png
+filename:2,s1.png
+
+slider1:0<-24,24,1>-Low (dB)
+slider2:200<40,1020,1>-Frequency (Hz)
+slider3:0<-24,24,1>-Mid (dB)
+slider4:2000<1020,2200,1>-Frequency (Hz)
+slider5:0<-24,24,1>-High (dB)
+slider6:0<-24,24,1>-Output (dB)
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+@init
+cDenorm = 10^-30;
+cAmpDB = 8.65617025;
+
+
+
+
+
+lVol = exp(slider1/cAmpDB); 
+mVol = exp(slider3/cAmpDB); 
+hVol = exp(slider5/cAmpDB); 
+outVol = exp(slider6/cAmpDB); 
+
+freqLP = min(min(slider2,srate),slider4);
+xLP = exp(-2.0*$pi*freqLP/srate);
+a0LP = 1.0-xLP;
+b1LP = -xLP;
+
+freqHP = max(min(slider4,srate),slider2);
+xHP = exp(-2.0*$pi*freqHP/srate);
+a0HP = 1.0-xHP;
+b1HP = -xHP;
+
+
+@sample
+
+sl0 = (tmplLP = a0LP*spl0 - b1LP*tmplLP + cDenorm);
+sl1 = (tmprLP = a0LP*spl1 - b1LP*tmprLP + cDenorm);
+
+sh0 = spl0 - (tmplHP = a0HP*spl0 - b1HP*tmplHP + cDenorm);
+sh1 = spl1 - (tmprHP = a0HP*spl1 - b1HP*tmprHP + cDenorm);
+
+spl0 = (sl0*lVol + (spl0 - sl0 - sh0)*mVol + sh0*hVol)*outVol;
+spl1 = (sl1*lVol + (spl1 - sl1 - sh1)*mVol + sh1*hVol)*outVol;
+
+@gfx 752 250
+
+                  mouse_cap > 0 ? (
+                               mouseon == 0 ? (
+                                 mouseclick = 1;
+                                 mouse_cap == 2 ? val=0.1 : val = 1;
+
+
+
+
+    //Low 
+    (mouse_x>=85&&mouse_x<=150&&mouse_y>=61&&mouse_y<=130) ?   (mouseon=1;mouseclick=1;);
+    //MID
+    (mouse_x>=292&&mouse_x<=363&&mouse_y>=61&&mouse_y<=130) ?   (mouseon=3;mouseclick=3;);
+    //High
+    (mouse_x>=498&&mouse_x<=565&&mouse_y>=61&&mouse_y<=130) ?   (mouseon=5;mouseclick=5;);
+    
+    (mouse_x>=588&&mouse_x<=655&&mouse_y>=124&&mouse_y<=180) ? (mouseon=6;mouseclick=6;);
+
+     
+                  
+                  );
+                  //Q Low 
+                   mouseon == 1 ? (
+                    mouse_y < saveY ? slider1 = max(-24,slider1-val);
+                    mouse_y > saveY ? slider1 = min(24,slider1+val);
+                    mouse_cap == 2 ? slider1 = 0;
+                    );
+                    
+                    //Q MID
+                     mouseon == 3 ? (
+                      mouse_y < saveY ? slider3 = max(-24,slider3-val);
+                      mouse_y > saveY ? slider3 = min(24,slider3+val);
+                      mouse_cap == 2 ? slider3 = 0;
+                    );
+                    //high
+                    mouseon == 5 ? (
+                     mouse_y < saveY ? slider5 = max(-24,slider5-val);
+                     mouse_y > saveY ? slider5 = min(24,slider5+val);
+                     mouse_cap == 2 ? slider5 = 0;
+                     );
+                     //output
+                     mouseon == 6 ? (
+                      mouse_y < saveY ? slider6 = max(-24,slider6-val);
+                      mouse_y > saveY ? slider6 = min(24,slider6+val);
+                      mouse_cap == 2 ? slider6 = 0;
+                      );
+                  
+                  
+                                 
+                                 mouse_cap > 0 ? (
+                                   mouseon == 0 ? (
+                                     mouseclick = 1;
+                                     mouse_cap == 2 ? val=1.0 : val = 10;
+                             //Q Low 
+                             (mouse_x>=176&&mouse_x<=230&&mouse_y>=124&&mouse_y<=180) ? (mouseon=2;mouseclick=2;);
+                             //Q mID
+                              (mouse_x>=386&&mouse_x<=453&&mouse_y>=124&&mouse_y<=180) ? (mouseon=4;mouseclick=4;);
+                              
+                              );
+                              
+                              //LOW
+                               mouseon == 2 ? (
+                                 mouse_y < saveY ? slider2 = min(1020,slider2+val);
+                                 mouse_y > saveY ? slider2 = max(0,slider2-val);
+                                 mouse_cap == 2 ? slider12 = 200;
+                                 
+                                 );
+                                 
+                                 //MID
+                                  mouseon == 4 ? (
+                                    mouse_y < saveY ? slider4 = min(2200,slider4+val);
+                                    mouse_y > saveY ? slider4 = max(1020,slider4-val);
+                                    mouse_cap == 2 ? slider14 = 200;
+                                    
+                                 
+                                         
+                                            ); 
+                             
+                             
+                               
+                               );
+            
+            lVol = exp(slider1/cAmpDB); 
+            mVol = exp(slider3/cAmpDB); 
+            hVol = exp(slider5/cAmpDB); 
+            outVol = exp(slider6/cAmpDB); 
+            
+            freqLP = min(min(slider2,srate),slider4);
+            xLP = exp(-2.0*$pi*freqLP/srate);
+            a0LP = 1.0-xLP;
+            b1LP = -xLP;
+            
+            freqHP = max(min(slider4,srate),slider2);
+            xHP = exp(-2.0*$pi*freqHP/srate);
+            a0HP = 1.0-xHP;
+            b1HP = -xHP;
+            
+            
+            
+              saveX=mouse_X;
+              saveY=mouse_y;
+              
+            
+            ): (done=0;mouseon=0;);
+
+
+
+gfx_a=1;
+gfx_x=gfx_y=0;
+
+   rotation_x_offset = 1; // only used if rotation is set, represents offset from center of image
+   rotation_y_offset = 1;
+   
+coordinatelist=1000000; // use memory slots 30000-30009
+
+
+ //posição da imagem de fundo
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=752;
+  coordinatelist[3]=250;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=752;
+  coordinatelist[7]=250;
+  coordinatelist[8]=0; //represents offset from center of image
+  coordinatelist[9]=0; //represents offset from center of image
+  gfx_blitext(0,coordinatelist,0);
+  
+  
+  
+  //Knobs
+  
+  //Low
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=80;
+  coordinatelist[5]=60;
+  coordinatelist[6]=75;
+  coordinatelist[7]=75;
+  coordinatelist[8]=0; //centro da imagem
+  coordinatelist[9]=0; //centro da imagem
+  gfx_blitext(1,coordinatelist,-0.1+slider1/9.4+2.6);
+  
+  //Freq low
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=170;
+  coordinatelist[5]=120;
+  coordinatelist[6]=75;
+  coordinatelist[7]=75;
+  coordinatelist[8]=0; //centro da imagem
+  coordinatelist[9]=0; //centro da imagem
+  gfx_blitext(1,coordinatelist,-0.1+slider2/3100*15.9);
+  
+  //Mid
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=290;
+  coordinatelist[5]=60;
+  coordinatelist[6]=75;
+  coordinatelist[7]=75;
+  coordinatelist[8]=0; //centro da imagem
+  coordinatelist[9]=0; //centro da imagem
+  gfx_blitext(1,coordinatelist,-0.1+slider3/9.4+2.6);
+  
+  //Freq Mid
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=380;
+  coordinatelist[5]=120;
+  coordinatelist[6]=75;
+  coordinatelist[7]=75;
+  coordinatelist[8]=0; //centro da imagem
+  coordinatelist[9]=0; //centro da imagem
+  gfx_blitext(1,coordinatelist,1.7+slider4/1320*5.8);
+  
+  //High
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=495;
+  coordinatelist[5]=60;
+  coordinatelist[6]=75;
+  coordinatelist[7]=75;
+  coordinatelist[8]=0; //centro da imagem
+  coordinatelist[9]=0; //centro da imagem
+  gfx_blitext(1,coordinatelist,-0.1+slider5/9.4+2.6);
+  
+  //Freq Mid
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=588;
+  coordinatelist[5]=120;
+  coordinatelist[6]=75;
+  coordinatelist[7]=75;
+  coordinatelist[8]=0; //centro da imagem
+  coordinatelist[9]=0; //centro da imagem
+  gfx_blitext(2,coordinatelist,-0.1+slider6/9.4+2.6);
+  
+
+  
+
+  
+  
+  
+
+  
+  
+  //Letreiros
+  
+            gfx_r=0;gfx_g=1;gfx_b=0;
+            gfx_g=0.8;
+            gfx_a = 1;
+       
+       //Low
+  
+  
+  gfx_y = 136;
+  
+  //low
+  gfx_x = 100;
+  gfx_drawchar($'Q');
+  gfx_drawchar($'(');
+  gfx_drawchar($'d');
+  gfx_drawchar($'b');
+  gfx_drawchar($')');
+ 
+  //Mid
+  gfx_x = 310;
+  gfx_drawchar($'Q');
+  gfx_drawchar($'(');
+  gfx_drawchar($'d');
+  gfx_drawchar($'b');
+  gfx_drawchar($')');
+  
+  //High
+  //Mid
+  gfx_x = 516;
+  gfx_drawchar($'Q');
+  gfx_drawchar($'(');
+  gfx_drawchar($'d');
+  gfx_drawchar($'b');
+  gfx_drawchar($')');
+  
+  //Sinais - e + de cima
+  gfx_y = 110;
+  
+  //Low
+  gfx_x = 73;
+  
+  gfx_drawchar($'-');
+  
+  //Mid
+  gfx_x = 281;
+  
+  gfx_drawchar($'-');
+  
+  //High
+  gfx_x = 490;
+  
+  gfx_drawchar($'-');
+  
+  
+  
+  
+  //Low
+  gfx_x = 155;
+  
+  gfx_drawchar($'+');
+  
+  //MID
+  gfx_x = 364;
+  
+  gfx_drawchar($'+');
+  
+  gfx_x = 570;
+  
+  gfx_drawchar($'+');
+  
+  
+      
+  gfx_y = 197;
+  
+  //  Low
+  gfx_x = 192;
+  
+  gfx_drawchar($'(');
+  gfx_drawchar($'h');
+  gfx_drawchar($'z');
+  gfx_drawchar($')');
+  
+  //  MID
+  gfx_x = 399;
+  
+  gfx_drawchar($'(');
+  gfx_drawchar($'K');
+  gfx_drawchar($'h');
+  gfx_drawchar($'z');
+  gfx_drawchar($')');
+  
+  //  out
+  gfx_x = 590;
+  gfx_drawchar($'O');
+  gfx_drawchar($'u');
+  gfx_drawchar($'t');
+  gfx_drawchar($'p');
+  gfx_drawchar($'u');
+  gfx_drawchar($'t');
+  
+  gfx_drawchar($'(');
+  gfx_drawchar($'d');
+  gfx_drawchar($'b');
+  gfx_drawchar($')');
+  
+  
+  gfx_y = 50;
+  
+  gfx_x = 65;
+  gfx_drawchar($'L');
+  gfx_drawchar($'o');
+  gfx_drawchar($'w');
+  
+  gfx_x = 250;
+  gfx_drawchar($'M');
+  gfx_drawchar($'i');
+  gfx_drawchar($'d');
+  
+  gfx_x = 462;
+  gfx_drawchar($'H');
+  gfx_drawchar($'i');
+  gfx_drawchar($'g');
+  gfx_drawchar($'h');
+  
+  gfx_y = 235;
+  gfx_x = 570;
+  gfx_drawchar($'G');
+  gfx_drawchar($'i');
+  gfx_drawchar($'l');
+  gfx_drawchar($' ');
+  gfx_drawchar($'F');
+  gfx_drawchar($'e');
+  gfx_drawchar($'r');
+  gfx_drawchar($'n');
+  gfx_drawchar($'a');
+  gfx_drawchar($'n');
+  gfx_drawchar($'d');
+  gfx_drawchar($'e');
+  gfx_drawchar($'s');
+  gfx_drawchar($' ');
+  
+  gfx_drawchar($'V');
+  gfx_drawchar($'1');
+  gfx_drawchar($'.');
+  gfx_drawchar($'5');
+  
+
+  
+
+
+  //Sinais - e + de baixo 
+  gfx_y = 178;
+  
+  //Low 
+  gfx_x = 169;
+  
+  gfx_drawchar($'-');
+  
+  //Mid 
+  gfx_x = 376;
+  
+  gfx_drawchar($'-');
+  
+  //output
+  gfx_x = 583;
+  
+  gfx_drawchar($'-');
+  
+  //Low 
+  gfx_x = 242;
+
+  gfx_drawchar($'+');
+  
+  //Mid 
+  gfx_x = 453;
+  
+  gfx_drawchar($'+');
+  
+  //output
+
+  gfx_x = 660;
+  
+  gfx_drawchar($'+');
+  
+  
+
+  
+  
+  
+  //Bordas e display
+
+  
+    //Borda Display Low Q
+       gfx_r = 0;
+       gfx_g = 0.5;
+       gfx_b = 0;
+       gfx_a = 0.2;
+       gfx_x = 98;
+       gfx_y = 45;
+       gfx_rectto(148,62);
+    
+    //Borda Display  Low
+
+       gfx_x = 188;
+       gfx_y = 104;
+       gfx_rectto(233,121);
+    
+    
+    //Borda Display Mid q
+
+       gfx_x = 300;
+       gfx_y = 45;
+       gfx_rectto(355,62);
+    
+    //Borda Display  Mid
+
+       gfx_x = 398;
+       gfx_y = 104;
+       gfx_rectto(443,121);
+       
+       //Borda Display high q
+
+          gfx_x = 505;
+          gfx_y = 45;
+          gfx_rectto(558,62);
+       
+       //Borda Display  output
+
+          gfx_x = 603;
+          gfx_y = 104;
+          gfx_rectto(653,121);
+    
+  //código do display
+          
+            gfx_r=0;gfx_g=1;gfx_b=0;
+            gfx_g=1.0;
+            gfx_a = 1;
+
+            
+  
+              
+              //display  low
+                          gfx_x=113;gfx_y=50;
+                          gfx_drawnumber(slider1,0);
+
+                          
+                          //display  low
+                              gfx_x=195;gfx_y=110;
+                              gfx_drawnumber(slider2,0);
+    
+                        gfx_x=317;gfx_y=50;
+                        gfx_drawnumber(slider3,0);
+
+                        
+                      //display Mid 
+                        gfx_x=405;gfx_y=110;
+                        gfx_drawnumber(slider4,0);
+                        
+                        //high e out put
+    
+                        
+                        //display high
+                          gfx_x=519;gfx_y=50;
+                          gfx_drawnumber(slider5,0);
+
+                          //display  output
+                            gfx_x=617;gfx_y=110;
+                            gfx_drawnumber(slider6,0);
+    
+                           
+                          
+                       gfx_a=0.9;
+                       //knobs rED aRC
+                       gfx_r=0;
+                       gfx_g=0.5;
+                       gfx_b=0;
+                      
+                       //Low Q
+                      
+                      gfx_arc(118,98,26,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,26,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,28,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,29,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,30,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,27,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,26,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,28,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,29,10+slider1/9.4+2.6, 10); 
+                      gfx_arc(118,98,30,10+slider1/9.4+2.6, 10);
+                      
+                       //Mid Q
+                      
+                      gfx_arc(328,98,26,10+slider3/9.4+2.6, 10); 
+                      gfx_arc(328,98,28,10+slider3/9.4+2.6, 10); 
+                      gfx_arc(328,98,29,10+slider3/9.4+2.6, 10); 
+                      gfx_arc(328,98,30,10+slider3/9.4+2.6, 10); 
+                       gfx_arc(328,98,27,10+slider3/9.4+2.6, 10); 
+                      gfx_arc(328,98,28,10+slider3/9.4+2.6, 10); 
+                       gfx_arc(328,98,29,10+slider3/9.4+2.6, 10); 
+                       gfx_arc(328,98,30,10+slider3/9.4+2.6, 10); 
+   
+    //Mid Q
+   
+   gfx_arc(533,98,26,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,28,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,29,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,30,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,27,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,28,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,29,10+slider5/9.4+2.6, 10);
+   gfx_arc(533,98,30,10+slider5/9.4+2.6, 10);
+   
+   
+    //output
+    
+   gfx_arc(626,158,26,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,28,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,29,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,30,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,27,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,28,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,29,10+slider6/9.4+2.6, 10);
+   gfx_arc(626,158,30,10+slider6/9.4+2.6, 10);
+   
+   
+   
+    //Freq Low
+   gfx_arc(208,158,26,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,28,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,29,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,30,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,27,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,28,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,29,10.06+slider2/3100*15.9, 10); 
+   gfx_arc(208,158,30,10.06+slider2/3100*15.9, 10);
+   
+   
+    //Freq Mid
+   gfx_arc(418,158,26,5.5+slider4/1320*5.8, 10);; 
+   gfx_arc(418,158,28,5.5+slider4/1320*5.8, 10);; 
+   gfx_arc(418,158,29,5.5+slider4/1320*5.8, 10);; 
+   gfx_arc(418,158,30,5.5+slider4/1320*5.8, 10);;
+   gfx_arc(418,158,27,5.5+slider4/1320*5.8, 10);; 
+   gfx_arc(418,158,28,5.5+slider4/1320*5.8, 10);; 
+   gfx_arc(418,158,29,5.5+slider4/1320*5.8, 10);; 
+   gfx_arc(418,158,30,5.5+slider4/1320*5.8, 10);;
+   
+   
+     
+   help.x=20;            
+   help.y=236;
+
+
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Info!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +50 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 690/2; middleY = 340/2;
+  gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_rect(middleX-110,middleY-120,275,95);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-100; gfx_y = middleY-100;
+
+  gfx_drawstr("Author: (C) 2007, Michael Gruhn.
+\nSkin: Gil Fernandes
+Youtube.com/Gfbeats    "
+
+);
+  displayHelp *= 0.9;
+);
+       
+     
+     

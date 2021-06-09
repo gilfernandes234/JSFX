@@ -1,0 +1,549 @@
+// (C) 2012, Vladimir V. Belov
+// (C) 2007, Michael Gruhn.
+// (C) 2020, GIl Fernandes 
+
+// Released under GPL:
+// <http://www.gnu.org/licenses/>.
+
+desc:Stereo Imager
+
+slider1:<0,1,1{LR,MS}>-Mode
+slider2:1<0,2,0.01>-Width (%)
+slider3:0<-45,45,1>-Rotate (Deg)
+slider5:2<0,2,1>-Display
+
+
+
+filename:0,bgs.png
+filename:1,m4.png
+
+
+
+@init
+k=sqrt(2);
+p=$pi/180;
+
+gfx_clear=-1;
+off = 50000;
+rot=-45*0.017453292;
+DOTS = 0;
+LINES = 1;
+RAYS = 2;
+MAXDRAWSPLS = 10000;
+PHASEUPDATERATE = srate/8;
+n = 0;
+phC = 0;
+ph = 0;
+
+aa=exp(-log(9)*1000/srate/4);
+ar=exp(-log(9)*1000/srate/2000);
+c=1;
+
+
+@slider
+width=slider2;
+
+kr=p*slider3;
+kw=atan(slider2);
+
+kcs=cos(kr);
+ksn=sin(kr);
+
+k1=sin(kr-kw);
+k2=cos(kr-kw);
+k3=sin(kr+kw);
+k4=cos(kr+kw);
+
+@block
+
+@sample
+
+//Mode
+slider1==0 ? (
+    a0=(spl0+spl1)/2;
+    a1=(spl0-spl1)/2;
+             ):(
+    a0=spl0/k;
+    a1=spl1/k;
+             );
+
+//Width
+spl0=a0+a1*width;
+spl1=a0-a1*width;
+
+//Rotate
+L=spl0*kcs-spl1*ksn;
+R=spl1*kcs+spl0*ksn;
+spl0=L;
+spl1=R;
+
+//Goniometer
+s0 = sign(spl0);
+s1 = sign(spl1);
+angle = atan( spl0 / spl1 );
+(s0 == 1 && s1 == -1) || (s0 == -1 && s1 == -1) ? angle += 3.141592654;
+s0 == -1 && s1 == 1 ? angle += 6.283185307;
+spl1 == 0 ? spl0 > 0 ? angle = 1.570796327 : angle = 4.71238898;
+spl0 == 0 ? spl1 > 0 ? angle = 0 : angle = 3.141592654;
+radius = sqrt( sqr(spl0)+sqr(spl1) ) ;
+radius*c > 0.8 ? (c=c*aa) : (c=c/ar);
+radius*=c;
+angle -= rot;
+vert = 0[b] = cos(angle)*radius;
+horiz = off[b] = sin(angle)*radius;
+b<MAXDRAWSPLS ? b += 1;
+
+
+s0 != s1 ? phC-=1:phC+=1;
+(n+=1) > PHASEUPDATERATE ? (
+  ph = (1-(phC/n))/2;
+  phC = n = 0;
+);
+
+@gfx 700 300
+
+
+ gfx_setfont(1,"Arial",14,'a');
+
+   
+(mouse_cap&1) ? (
+  need_redraw=1;
+  mouse_y> 280 && mouse_y < 320 ? (
+    mousedown=5;
+    val=slider5;
+    mouse_x > 139 && mouse_x < 210 ? (val=0);
+    mouse_x > 242 && mouse_x < 272 ? (val=1);
+    mouse_x > 324 && mouse_x < 351 ? (val=2);
+  );
+)
+:
+(
+  mousedown = 0;
+     need_redraw=0;
+);
+
+      
+
+  mousedown == 5 ? (slider5 = val);   
+    
+    
+    
+    
+  mouse_cap > 0 ? (
+    mouseon == 0 ? (
+      mouseclick = 0;
+      
+        //width
+       (mouse_x>=640&&mouse_x<=645&&mouse_y>=61&&mouse_y<=280) ? (mouseon=2;mouseclick=2;val=0.1);
+       (mouse_x>=80&&mouse_x<430&&mouse_y>=60&&mouse_y<=260) ? (mouseon=2;mouseclick=2;val=0.1);
+       //rotate
+       (mouse_x>=565&&mouse_x<=570&&mouse_y>=61&&mouse_y<=280) ? (mouseon=3;mouseclick=3;;val=0.1);
+       (mouse_x>=100&&mouse_x<430&&mouse_y>=200&&mouse_y<=265) ? (mouseon=3;mouseclick=3;val=0.1);
+       mouse_cap == 17 ? val=100
+       
+
+          );       //rotate
+          mouseon == 3 ? (
+           slider3 = max(-45,min((-174+mouse_y)*0.45,45));
+           mouse_cap == 2 ? slider3 = 0;
+           
+
+        );
+        //width
+          mouseon == 2 ? (
+           slider2 = max(0,min((-75+mouse_y)/99,2));
+           mouse_cap == 2 ? slider2 = 1;
+           );
+ 
+          
+       
+
+       
+   width=slider2;
+   
+   kr=p*slider3;
+   kw=atan(slider2);
+   
+   kcs=cos(kr);
+   ksn=sin(kr);
+   
+   k1=sin(kr-kw);
+   k2=cos(kr-kw);
+   k3=sin(kr+kw);
+   k4=cos(kr+kw); 
+    
+    
+    
+  saveX=mouse_x;
+  saveY=mouse_y;
+): (done=0;mouseon=0;);
+    
+    
+    
+//dimensao do goniometer   
+size =  min+max(1,469); 
+sizeH = size/1.8;
+sizeDSqr05 = sizeH * 0.70710681;
+sizeQ = sizeH/2;
+size2Q = 2*sizeQ;
+size3Q = 3*sizeQ;
+
+
+
+
+//Atualização de fundo azul
+gfx_r=0;
+gfx_g=0.08;
+gfx_b=0.13;
+gfx_a=0.07;
+gfx_x=4;
+gfx_y=0;
+gfx_rectto(700,500);
+
+
+
+  //barra DOS ANGULOS
+  gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.1;
+  gfx_arc(260,245,175,2,8,1);
+  gfx_arc(260,245,135,2,8,1);
+  gfx_arc(260,245,100,2,8,1);
+  gfx_arc(260,245,66,1,8,1);
+
+
+
+x = y = sizeH;
+
+i = min(b,MAXDRAWSPLS);
+while (
+  slider5 == DOTS ? (
+  gfx_a=0.6;
+  gfx_x=sizeH+0[i]*sizeDSqr05;
+  gfx_y=sizeH-off[i]*sizeDSqr05;
+  gfx_setpixel(0.6,1,0);
+  ):(
+    slider5 == LINES ? (
+      gfx_x=x; gfx_y=y;
+      x=sizeH+0[i]*sizeDSqr05;
+      y=sizeH-off[i]*sizeDSqr05;
+    ):(
+      gfx_x=sizeH+0[i]*sizeDSqr05;
+      gfx_y=sizeH-off[i]*sizeDSqr05;
+    );
+      gfx_r=0; gfx_g=1; gfx_b=0; gfx_a=0.209;
+  gfx_lineto(x,y,0);
+  );
+  (i-=1)>0;
+);
+b=0;
+
+//background
+gfx_a=1;
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=794;
+  coordinatelist[3]=380;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=700;
+  coordinatelist[7]=300;
+  coordinatelist[8]=0; //represents offset from center of image
+  coordinatelist[9]=0; //represents offset from center of image
+  gfx_blitext(0,coordinatelist,0);
+  
+  
+
+//Referencia linhas
+gfx_r=0;
+gfx_g=1;
+gfx_b=1; gfx_a=0.38;
+
+gfx_x=sizeQ; gfx_y=sizeQ;
+gfx_lineto(size3Q,size3Q,0);
+
+gfx_x=sizeQ; gfx_y=size3Q;
+gfx_lineto(size3Q,sizeQ,0);
+
+gfx_a=0.38;
+gfx_x=size2Q; gfx_y=size2Q-sizeQ*k-5;
+gfx_lineto(size2Q,size2Q+sizeQ*k,1);
+
+
+gfx_r=0.2;
+gfx_g=0.6;
+gfx_b=0.8; gfx_a=0.48;
+gfx_x=size2Q-sizeQ*k+9; gfx_y=size2Q;
+gfx_lineto(size2Q+sizeQ*k-9,size2Q,1);
+
+
+//rotação
+gfx_r=0.9; gfx_g=0.4; gfx_b=0; gfx_a=1;
+gfx_x=gfx_y=size2Q;
+gfx_lineto (sizeQ*(2+k1),sizeQ*(2-k2),2);
+gfx_lineto (sizeQ*(2+k3),sizeQ*(2-k4),2);
+gfx_lineto (size2Q,size2Q,6);
+gfx_lineto (sizeQ*(2+ksn*1.05),sizeQ*(2-kcs*1.05),1);
+
+
+
+//vedação azul e preto
+gfx_r=0;
+gfx_g=0.08;
+gfx_b=0.13;
+gfx_a=1;
+gfx_x=4;
+gfx_y=261;
+gfx_rectto(470,490);
+
+gfx_x=460;
+gfx_y=40;
+gfx_rectto(504,490);
+
+
+gfx_r=0;
+gfx_g=0.0;
+gfx_b=0;
+gfx_a=1;
+gfx_x=0;
+gfx_y=300;
+gfx_rectto(1050,1500);
+
+
+
+//Barra Correlation
+   gfx_a=0.9;
+  gfx_r=0;
+  gfx_g=0;
+  gfx_b=0;;
+  gfx_x=442; gfx_y=270;
+  gfx_rectto(79,262);
+
+  //Pixels Name
+  gfx_setfont(1,"Arial",20,'a');
+  gfx_r=1.7; gfx_g=1; gfx_b=1; gfx_a=1;
+  gfx_y = 276;
+  gfx_x = 165;
+  gfx_drawchar($'D');
+  gfx_drawchar($'o');
+  gfx_drawchar($'t');
+  
+
+  gfx_x = 245;
+  gfx_drawchar($'L');
+  gfx_drawchar($'i');
+  gfx_drawchar($'n');
+  gfx_drawchar($'e');
+  
+
+  gfx_x = 325;
+  gfx_drawchar($'R');
+  gfx_drawchar($'a');
+  gfx_drawchar($'y');
+  
+
+
+
+  gfx_setfont(1,"Arial",15,'a');
+gfx_r=0.7; gfx_g=1; gfx_b=0.1; gfx_a=1;
+  //Letras
+  
+  gfx_y = 120;
+  gfx_x = 119;
+  gfx_drawchar($'L');
+  
+  gfx_x = 396;
+  gfx_drawchar($'R');
+  
+  gfx_x = 257; gfx_y = 54;
+  gfx_drawchar($'M');
+  
+  gfx_y = 220;
+  gfx_x = 57;
+  gfx_drawchar($'+');
+  gfx_drawchar($'S');
+  
+  gfx_x = 447;
+  gfx_drawchar($'-');
+  gfx_drawchar($'S');
+  
+  
+  
+  
+  
+  //Pixels Name
+  gfx_setfont(1,"Arial",20,'a');
+  slider5 == 0 ? (
+  gfx_r=0.7; gfx_g=1; gfx_b=0.1; gfx_a=1;
+  gfx_y = 276;
+  gfx_x = 165;
+  gfx_drawchar($'D');
+  gfx_drawchar($'o');
+  gfx_drawchar($'t');
+);
+  slider5 == 1 ? (
+  
+  gfx_y = 276;
+  gfx_x = 245;
+  gfx_drawchar($'L');
+  gfx_drawchar($'i');
+  gfx_drawchar($'n');
+  gfx_drawchar($'e');
+  
+  );
+  
+  slider5 == 2? (
+  gfx_y = 276;
+  gfx_x = 325;
+  gfx_drawchar($'R');
+  gfx_drawchar($'a');
+  gfx_drawchar($'y');
+  );
+  
+
+
+  
+  
+  
+
+
+  
+  gfx_r=0; gfx_g=1; gfx_b=0.1; gfx_a=1;
+  //Barra Verde limites
+  gfx_rect(76,262,3,7);
+  gfx_rect(259,262,3,7);
+  gfx_rect(442,262,3,7);
+  
+
+  gfx_a=1;
+  
+   coordinatelist=1000000; 
+   coordinatelist[0]=0;
+   coordinatelist[1]=0;
+   coordinatelist[2]=40;
+   coordinatelist[3]=18;
+   coordinatelist[5]=278;
+   coordinatelist[6]=37;
+   coordinatelist[7]=18;
+   coordinatelist[8]=rotation_x_offset; 
+   coordinatelist[9]=rotation_y_offset;   
+  
+  coordinatelist[4]=slider5*55+164;
+  gfx_blitext(1,coordinatelist,0);
+  
+  
+  
+  
+  
+  //barra vertical mixer knobs
+
+  gfx_r=0;
+  gfx_g=0;
+  gfx_b=0;
+  gfx_a=1;
+  // Rotate
+  gfx_x=570;
+  gfx_y=70;
+  gfx_rectto(565,280);
+  //Width
+  gfx_x=645;
+  gfx_y=70;
+  gfx_rectto(640,280);
+  
+  
+  gfx_r=0.;
+  gfx_g=0.5;
+  gfx_b=0.6;
+  gfx_a=0.8;
+  
+  // Rotate
+  gfx_x=570;
+  gfx_y=173;
+  gfx_rectto(565,175+slider3*2.2);
+  //Width
+  gfx_x=645;
+  gfx_y=173;
+  gfx_rectto(640,75+slider2*99);
+  
+  
+  
+  
+  
+  gfx_r=0.7;
+  gfx_g=0.7;
+  gfx_b=0.7;
+  gfx_a=1;
+  
+  gfx_circle(567,175+slider3*2.2,4,2);
+  gfx_circle(642,76+slider2*99,4,2);
+  
+  
+  gfx_arc(567,174+1+slider3*2.2,10,8,1,1);
+  gfx_arc(642,75+1+slider2*99,10,22,8,1);
+  
+  
+  gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+  
+  gfx_x=545;
+  gfx_y=45;
+  gfx_drawstr("Rotate");
+  gfx_x=620;
+  gfx_drawstr("Width");
+  
+  gfx_setfont(1,"Arial",15,'a');
+  gfx_x=4;
+  gfx_y=6;
+  gfx_drawstr("Gil Fernandes V1.0");
+  
+  gfx_setfont(1,"Arial",14,'a');
+     help.x=670;            
+     help.y=4;
+  
+  
+   gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+   gfx_x = help.x; gfx_y = help.y;
+   gfx_drawstr("Info!!");
+  
+   mouse_cap > 0 ? (
+     mouseon == 0 ? (
+       mouseclick = 0;
+       (mouse_x>= help.x && mouse_x<= help.x +50 && 
+        mouse_y>= help.y && mouse_y<= help.y +10) ?
+     displayHelp = 1;
+   );
+   );
+  
+    displayHelp > 0.01 ? (
+     gfx_a = displayHelp;
+    gfx_mode = 0;
+    middleX = 660/2; middleY = 350/2;
+    gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+    gfx_rect(middleX-110,middleY-120,250,145);
+    gfx_r = 1; gfx_g = 1; gfx_b = 0;
+    gfx_x = middleX-100; gfx_y = middleY-100;
+  
+    gfx_drawstr("                                Author:
+                    (C) 2007, Michael Gruhn.
+                    (C) 2012, Vladimir V. Belov
+                        
+                      Skin: Gil Fernandes
+                      Youtube.com/Gfbeats 
+  
+                        "
+          
+  );
+  
+    displayHelp *=0.85;
+  );
+   
+       gfx_setfont(1,"Impact",38,'a');
+       
+       gfx_r = 0; gfx_g = 0; gfx_b = 0; 
+       
+       gfx_x=265;
+       gfx_y=1;
+       gfx_drawstr("Stereo Imager");
+       gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 1;
+       
+       gfx_x=262;
+       gfx_y=1;
+       gfx_drawstr("Stereo Imager");
+ 

@@ -1,0 +1,246 @@
+// (C) 2007, Michael Gruhn.
+
+// NO WARRANTY IS GRANTED. THIS PLUG-IN IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+// WARRANTY OF ANY KIND. NO LIABILITY IS GRANTED, INCLUDING, BUT NOT LIMITED TO,
+// ANY DIRECT OR INDIRECT,  SPECIAL,  INCIDENTAL OR CONSEQUENTIAL DAMAGE ARISING
+// OUT OF  THE  USE  OR INABILITY  TO  USE  THIS PLUG-IN,  COMPUTER FAILTURE  OF
+// MALFUNCTION INCLUDED.  THE USE OF THE SOURCE CODE,  EITHER  PARTIALLY  OR  IN
+// TOTAL, IS ONLY GRANTED,  IF USED IN THE SENSE OF THE AUTHOR'S INTENTION,  AND
+// USED WITH ACKNOWLEDGEMENT OF THE AUTHOR. FURTHERMORE IS THIS PLUG-IN A  THIRD
+// PARTY CONTRIBUTION,  EVEN IF INCLUDED IN REAPER(TM),  COCKOS INCORPORATED  OR
+// ITS AFFILIATES HAVE NOTHING TO DO WITH IT.  LAST BUT NOT LEAST, BY USING THIS
+// PLUG-IN YOU RELINQUISH YOUR CLAIM TO SUE IT'S AUTHOR, AS WELL AS THE CLAIM TO
+// ENTRUST SOMEBODY ELSE WITH DOING SO.
+
+desc:Center Canceler [LOSER]
+//tags: processing stereo
+//author: LOSER
+
+filename:0,CenterGFX/knob.png
+filename:1,CenterGFX/background.png
+
+
+slider1:0<0,100,1>-Amount (%)
+
+
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+
+@slider
+p1.val_pos = slider1;
+a=slider1/100;
+
+
+@sample
+m=(spl0+spl1)/2;
+n=(spl0-spl1);
+spl0=n*a+m*(a-1);
+spl1=n*a+m*(a-1);
+
+@gfx 0 316
+ 
+ gfx_setfont(1,"Arial",14,'a');
+ 
+ 
+  function init_mouse() (
+    !X ? (X = mouse_x;);
+    !Y ? (Y = mouse_y;);
+  );
+  function uninit_mouse() (
+    X = 0;
+    Y = 0;
+  );
+  mouse_cap ? init_mouse() : uninit_mouse();
+
+
+   rotation_x_offset = 1; // only used if rotation is set, represents offset from center of image
+   rotation_y_offset = 1;
+   
+coordinatelist=1000000; // use memory slots 30000-30009
+
+
+ //posição da imagem de fundo
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=296;
+  coordinatelist[3]=316;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=296;
+  coordinatelist[7]=316;
+  coordinatelist[8]=0; //represents offset from center of image
+  coordinatelist[9]=0; //represents offset from center of image
+  gfx_blitext(1,coordinatelist,0);
+  
+
+
+  
+  
+  gfx_r = 0.0; 
+   gfx_g = 0.8;
+    gfx_b = 0.5;
+   
+  gfx_a = 1;
+  gfx_x = 190;
+  gfx_y = 299;
+     gfx_drawstr("Gil Fernandes V1.3");
+  
+  gfx_a = 1;
+  gfx_x = 25;
+  gfx_y = 299;
+gfx_drawstr("LOSER");
+
+  
+
+
+  
+       gfx_setfont(1,"Arial",18,'B');
+    gfx_a = 1;
+    gfx_x = 127;
+    gfx_y = 74;
+  gfx_drawstr("Amount:");    
+  
+  gfx_setfont(1,"Arial",18,'b');
+  
+  
+       
+   function draw_pot(pot_x,pot_y,min_val,max_val,step_size,
+   frame_width,frame_height,frame_count,showval,gfxindex)
+   instance(
+     total_steps,rpos,pos_temp,val_pos,coordinatelist,
+     val_temp,prec,val_str,unit,str_x,str_y,reset_val
+   )
+   (
+     total_steps = (max_val - min_val) / step_size;
+     val_temp != val_pos ? _Dirty = 1;
+     !mouse_cap ? (pos_temp = mouse_y; val_temp = val_pos;);
+   
+     X > pot_x && X < pot_x+frame_width && Y > pot_y && Y < pot_y+frame_height ? (
+       val_pos = -((mouse_y - pos_temp)/ (total_steps < 50 ? (1/total_steps*100) : 1) *step_size) + (val_temp / (total_steps / frame_height)) / (frame_height / total_steps);
+       mouse_cap & 4 ? val_pos = reset_val;
+    
+     );
+   
+     val_pos = max(val_pos,min_val);
+     val_pos = min(val_pos,max_val); 
+     rpos = floor( (val_pos - min_val) * ((frame_count) / total_steps) / step_size) * frame_height;
+     rpos = min(rpos,(frame_count * frame_height) - frame_height);
+     coordinatelist[0] = 0;
+     coordinatelist[1] = rpos;
+     coordinatelist[2] = coordinatelist[6] = frame_width;
+     coordinatelist[3] = coordinatelist[7] = frame_height;
+     coordinatelist[4] = pot_x;
+     coordinatelist[5] = pot_y;
+     gfx_a=1;
+     gfx_r = 0.0; 
+      gfx_g = 0.8;
+       gfx_b = 0.5;
+     gfx_blitext(gfxindex, coordinatelist, 0);
+     showval ? (    
+       step_size >= 1 ? prec = "%.0f";
+       step_size < 1 ? prec = "%.0f";
+       step_size < 0.1 ? prec = "%.0f";
+       val_str = sprintf (#,prec,val_pos);
+       val_str = strcat(val_str, unit);
+       gfx_measurestr(val_str,str_x,str_y);
+       gfx_x = pot_x+(frame_width/2)-(str_x/2) ; gfx_y = 5+pot_y+frame_height-(str_y/8)-2;
+       gfx_drawstr(val_str);
+     );
+     val_pos;
+   );
+   
+   function doMouseWheel(slideval,minval,maxval,inc)(
+     mouse_wheel < 0? slideval = Max(minval,slideval-inc);
+     mouse_wheel > 0? slideval = Min(maxval,slideval+inc);
+     mouse_wheel = 0;
+     slideval;
+   );
+   
+   slider1 = p1.draw_pot(87,103,0,100,1,128,128,31,2,0); 
+   slider1 = doMouseWheel(slider1,0,60,1);
+   
+
+    
+       
+       
+       _Dirty ? (
+       
+a=slider1/100;
+  
+         _Dirty = 0;
+         
+       );
+       
+  gfx_r = 0.6; 
+   gfx_g = 0.6;
+    gfx_b = 0.6;
+    gfx_a = 1;
+   
+  
+
+
+
+
+  
+   gfx_setfont(1,"Arial Black",14,'a');
+   help.x=120;            
+   help.y=1;
+
+ gfx_r = 1; gfx_g = 0.9; gfx_b = 0; gfx_a = 0.8;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Click Here!!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +70 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+ 
+ 
+ 
+ 
+ 
+ gfx_setfont(1,"Arial",14,'a');
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 600/2; middleY = 300/2;
+  gfx_r = 0.; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_x = 0; gfx_y = 0;
+gfx_blit(1,1,0);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-260; gfx_y = middleY-64;
+  gfx_drawstr("                            Author Plugin:
+                  (C) 2007, Michael Gruhn.
+                       Released under GPL:
+             <http://www.gnu.org/licenses/>.
+                    
+                    
+            CodeGFX/Skin: Gil Fernandes
+                  Youtube.com/GFbeats 
+          estudiogilfernandes.blogspot.com/
+
+                      
+                         "
+
+);
+  displayHelp *= 0.5;
+);
+   gfx_r = 0.8; 
+    gfx_g = 0.8;
+     gfx_b = 0.8;
+    
+          
+               gfx_setfont(1,"Arial",33,'B');
+            gfx_a = 1;
+            gfx_x = 45;
+            gfx_y = 20;
+          gfx_drawstr("Center Canceler"); 
+ 

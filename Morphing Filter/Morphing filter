@@ -1,0 +1,892 @@
+// (C) 2008-2009, Lubomir I. Ivanov
+
+// NO WARRANTY IS GRANTED. THIS PLUG-IN IS PROVIDED ON AN "AS IS" BASIS, WITHOUT
+// WARRANTY OF ANY KIND. NO LIABILITY IS GRANTED, INCLUDING, BUT NOT LIMITED TO,
+// ANY DIRECT OR INDIRECT,  SPECIAL,  INCIDENTAL OR CONSEQUENTIAL DAMAGE ARISING
+// OUT OF  THE  USE  OR INABILITY  TO  USE  THIS PLUG-IN,  COMPUTER FAILTURE  OF
+// MALFUNCTION INCLUDED.  THE USE OF THE SOURCE CODE,  EITHER  PARTIALLY  OR  IN
+// TOTAL, IS ONLY GRANTED,  IF USED IN THE SENSE OF THE AUTHOR'S INTENTION,  AND
+// USED WITH ACKNOWLEDGEMENT OF THE AUTHOR. FURTHERMORE IS THIS PLUG-IN A  THIRD
+// PARTY CONTRIBUTION,  EVEN IF INCLUDED IN REAPER(TM),  COCKOS INCORPORATED  OR
+// ITS AFFILIATES HAVE NOTHING TO DO WITH IT.  LAST BUT NOT LEAST, BY USING THIS
+// PLUG-IN YOU RELINQUISH YOUR CLAIM TO SUE IT'S AUTHOR, AS WELL AS THE CLAIM TO
+// ENTRUST SOMEBODY ELSE WITH DOING SO.
+// 
+// Released under GPL:
+// <http://www.gnu.org/licenses/>.
+//
+//******************************************************************************
+// State Variable (Morphing) filter
+// AppleFilter - butterworth filter implementation 
+// original port from apple.com au tutorial (c++)
+// added coefficients for HP, BP, BR
+// :::NOTE: cutoff glitches when automated fast:::
+// :::Better interpolation or oversampling is required:::
+//******************************************************************************
+
+desc:Morphing Filter (Liteon) 
+Skin and Code GFX: Gil Fernandes
+
+filename:0,/morph_gfx/bgf.png
+filename:1,/morph_gfx/Mid_Knob_02.png
+filename:2,/morph_gfx/Mid_Knob_01.png
+filename:3,/morph_gfx/k2.png
+filename:4,/morph_gfx/bgb.png
+filename:5,/morph_gfx/sm.png
+
+
+slider1:0<0,1,1{Stereo,Mono}>-Processing
+slider2:0.5<0,1,0.001>-X (Morph)
+slider3:0.5<0,1,0.001>-Y (Morph)
+slider4:50<0,100,0.01>-Frequency 
+slider5:6<0,24,0.01>-Resonance
+slider6:100<0,100,0.01>-Filter Percent
+slider7:0<-24,24,1>-Output
+slider
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+@init
+
+
+step = 215;
+old_f_x = 59;
+old_f_y = 59;
+old_c_x = step+59;
+old_c_y = 191;
+
+
+  
+
+function doCenterText(ctrX, ctrY, val)(
+  str = sprintf(#, "%.f", val);
+  gfx_measurestr(str, str_w, str_h);
+  gfx_x = ctrX - str_w/2;
+  gfx_y = ctrY - str_h/2;
+  gfx_drawstr(str);
+);
+
+
+
+@slider
+
+//---------------mix
+amount = (100-slider6)/100;
+outgain = 10^(slider7/20);
+slider7 == -24 ? outgain = 0;
+//  x,y scheme
+//     
+//  hp - br
+//  |     |
+//  lp - bp
+//
+tgt_x = slider2;
+tgt_y = slider3;
+//-------------filters
+sx = 16+slider4*1.20103;
+cx = floor(exp(sx*log(1.059))*8.17742);
+cutoff = 2*cx/srate;
+cx < 50 ? (
+res = 1;
+) : (
+res = 10^(0.05*(-slider5+1.5));
+);
+//lp
+k = 0.5*res*sin($pi*cutoff);
+c1 = 0.5*(1-k)/(1+k);
+c2 = (0.5+c1)*cos($pi*cutoff);
+c3 = (0.5+c1-c2)*0.25;
+tgt_a0_lp = 2*c3;
+tgt_a1_lp = 4*c3;
+tgt_a2_lp = 2*c3;
+tgt_b1_lp = -2*c2;
+tgt_b2_lp = 2*c1;
+//hp
+c3 = (0.5+c1+c2)*0.25;
+tgt_a0_hp = 2*c3;
+tgt_a1_hp = -4*c3;
+tgt_a2_hp = 2*c3;
+tgt_b1_hp = -2*c2;
+tgt_b2_hp = 2*c1;
+//bp
+c3 = (0.5+c1-c2)*0.25;
+tgt_a0_bp = k/(1+k);
+tgt_b1_bp = -2*c2;
+tgt_b2_bp = 2*c1;
+//br
+k = 2*res*sin($pi*cutoff);
+c1 = 0.5*(1-k)/(1+k);
+c2 = (0.5+c1)*cos($pi*cutoff);
+c3 = (0.5+c1-c2)*0.25;
+tgt_a0_br = 1/(1+k);
+tgt_a1_br = tgt_a0_br*(-2*cos($pi*cutoff));
+tgt_b1_br = -2*c2;
+tgt_b2_br = 2*c1;
+
+@block
+//---interpolate filters
+//lp
+d_a0_lp = (tgt_a0_lp-src_a0_lp)/samplesblock;
+a0_lp = src_a0_lp;
+src_a0_lp = tgt_a0_lp;
+d_a1_lp = (tgt_a1_lp-src_a1_lp)/samplesblock;
+a1_lp = src_a1_lp;
+src_a1_lp = tgt_a1_lp;
+d_a2_lp = (tgt_a2_lp-src_a2_lp)/samplesblock;
+a2_lp = src_a2_lp;
+src_a2_lp = tgt_a2_lp;
+d_b1_lp = (tgt_b1_lp-src_b1_lp)/samplesblock;
+b1_lp = src_b1_lp;
+src_b1_lp = tgt_b1_lp;
+d_b2_lp = (tgt_b2_lp-src_b2_lp)/samplesblock;
+b2_lp = src_b2_lp;
+src_b2_lp = tgt_b2_lp;
+//hp
+d_a0_hp = (tgt_a0_hp-src_a0_hp)/samplesblock;
+a0_hp = src_a0_hp;
+src_a0_hp = tgt_a0_hp;
+d_a1_hp = (tgt_a1_hp-src_a1_hp)/samplesblock;
+a1_hp = src_a1_hp;
+src_a1_hp = tgt_a1_hp;
+d_a2_hp = (tgt_a2_hp-src_a2_hp)/samplesblock;
+a2_hp = src_a2_hp;
+src_a2_hp = tgt_a2_hp;
+d_b1_hp = (tgt_b1_hp-src_b1_hp)/samplesblock;
+b1_hp = src_b1_hp;
+src_b1_hp = tgt_b1_hp;
+d_b2_hp = (tgt_b2_hp-src_b2_hp)/samplesblock;
+b2_hp = src_b2_hp;
+src_b2_hp = tgt_b2_hp;
+//bp
+d_a0_bp = (tgt_a0_bp-src_a0_bp)/samplesblock;
+a0_bp = src_a0_bp;
+src_a0_bp = tgt_a0_bp;
+d_b1_bp = (tgt_b1_bp-src_b1_bp)/samplesblock;
+b1_bp = src_b1_bp;
+src_b1_bp = tgt_b1_bp;
+d_b2_bp = (tgt_b2_bp-src_b2_bp)/samplesblock;
+b2_bp = src_b2_bp;
+src_b2_bp = tgt_b2_bp;
+//br
+d_a0_br = (tgt_a0_br-src_a0_br)/samplesblock;
+a0_br = src_a0_br;
+src_a0_br = tgt_a0_br;
+d_a1_br = (tgt_a1_br-src_a1_br)/samplesblock;
+a1_br = src_a1_br;
+src_a1_br = tgt_a1_br;
+d_b1_br = (tgt_b1_br-src_b1_br)/samplesblock;
+b1_br = src_b1_br;
+src_b1_br = tgt_b1_br;
+d_b2_br = (tgt_b2_br-src_b2_br)/samplesblock;
+b2_br = src_b2_br;
+src_b2_br = tgt_b2_br;
+
+//----------interpolate x,y
+d_x = (tgt_x-src_x)/samplesblock;
+x = src_x;
+src_x = tgt_x;
+d_y = (tgt_y-src_y)/samplesblock;
+y = src_y;
+src_y = tgt_y;
+
+@sample
+
+//---interpolate filters
+//lp
+a0_lp += d_a0_lp;
+a1_lp += d_a1_lp;
+a2_lp += d_a2_lp;
+b1_lp += d_b1_lp;
+b2_lp += d_b2_lp;
+//hp
+a0_hp += d_a0_hp;
+a1_hp += d_a1_hp;
+a2_hp += d_a2_hp;
+b1_hp += d_b1_hp;
+b2_hp += d_b2_hp;
+//bp
+a0_bp += d_a0_bp;
+b1_bp += d_b1_bp;
+b2_bp += d_b2_bp;
+//br
+a0_br += d_a0_br;
+a1_br += d_a1_br;
+b1_br += d_b1_br;
+b2_br += d_b2_br;
+
+//---------interpolate x,y
+x += d_x;
+y += d_y;
+
+//-----------------------------------------
+//mono
+slider1 == 1 ? (
+inl = (spl0+spl1)/2;
+
+//lp
+out_lp_l = a0_lp*inl+a1_lp*mem1_lp_l+a2_lp*mem2_lp_l-b1_lp*mem3_lp_l-b2_lp*mem4_lp_l;
+mem2_lp_l = mem1_lp_l;
+mem1_lp_l = inl;
+mem4_lp_l = mem3_lp_l;
+mem3_lp_l = out_lp_l;
+
+//hp
+out_hp_l = a0_hp*inl+a1_hp*mem1_hp_l+a2_hp*mem2_hp_l-b1_hp*mem3_hp_l-b2_hp*mem4_hp_l;
+mem2_hp_l = mem1_hp_l;
+mem1_hp_l = inl;
+mem4_hp_l = mem3_hp_l;
+mem3_hp_l = out_hp_l;
+
+//bp
+out_bp_l = a0_bp*inl-a0_bp*mem2_bp_l-b1_bp*mem3_bp_l-b2_bp*mem4_bp_l;
+mem2_bp_l = mem1_bp_l;
+mem1_bp_l = inl;
+mem4_bp_l = mem3_bp_l;
+mem3_bp_l = out_bp_l;
+
+//br
+out_br_l = a0_br*inl+a1_br*mem1_br_l+a0_br*mem2_br_l-b1_br*mem3_br_l-b2_br*mem4_br_l;
+mem2_br_l = mem1_br_l;
+mem1_br_l = inl;
+mem4_br_l = mem3_br_l;
+mem3_br_l = out_br_l;
+
+//out
+
+//hp, lp
+pair1_l = out_lp_l*y+out_hp_l*(1-y);
+//br, bp
+pair2_l = out_bp_l*y+out_br_l*(1-y);
+//out
+outl = pair2_l*x+pair1_l*(1-x);
+
+spl0 = spl1 = (outl*(1-amount)+inl*amount)*outgain;
+) : (
+//---------------------stereo
+
+//-------LEFT
+
+inl = spl0;
+
+//lp
+out_lp_l = a0_lp*inl+a1_lp*mem1_lp_l+a2_lp*mem2_lp_l-b1_lp*mem3_lp_l-b2_lp*mem4_lp_l;
+mem2_lp_l = mem1_lp_l;
+mem1_lp_l = inl;
+mem4_lp_l = mem3_lp_l;
+mem3_lp_l = out_lp_l;
+
+//hp
+out_hp_l = a0_hp*inl+a1_hp*mem1_hp_l+a2_hp*mem2_hp_l-b1_hp*mem3_hp_l-b2_hp*mem4_hp_l;
+mem2_hp_l = mem1_hp_l;
+mem1_hp_l = inl;
+mem4_hp_l = mem3_hp_l;
+mem3_hp_l = out_hp_l;
+
+//bp
+out_bp_l = a0_bp*inl-a0_bp*mem2_bp_l-b1_bp*mem3_bp_l-b2_bp*mem4_bp_l;
+mem2_bp_l = mem1_bp_l;
+mem1_bp_l = inl;
+mem4_bp_l = mem3_bp_l;
+mem3_bp_l = out_bp_l;
+
+//br
+out_br_l = a0_br*inl+a1_br*mem1_br_l+a0_br*mem2_br_l-b1_br*mem3_br_l-b2_br*mem4_br_l;
+mem2_br_l = mem1_br_l;
+mem1_br_l = inl;
+mem4_br_l = mem3_br_l;
+mem3_br_l = out_br_l;
+
+//out
+
+//hp, lp
+pair1_l = out_lp_l*y+out_hp_l*(1-y);
+//br, bp
+pair2_l = out_bp_l*y+out_br_l*(1-y);
+//out
+outl = pair2_l*x+pair1_l*(1-x);
+
+spl0 = (outl*(1-amount)+inl*amount)*outgain;
+
+//----------RIGHT
+
+inr = spl1;
+
+//lp
+out_lp_r = a0_lp*inr+a1_lp*mem1_lp_r+a2_lp*mem2_lp_r-b1_lp*mem3_lp_r-b2_lp*mem4_lp_r;
+mem2_lp_r = mem1_lp_r;
+mem1_lp_r = inr;
+mem4_lp_r = mem3_lp_r;
+mem3_lp_r = out_lp_r;
+
+//hp
+out_hp_r = a0_hp*inr+a1_hp*mem1_hp_r+a2_hp*mem2_hp_r-b1_hp*mem3_hp_r-b2_hp*mem4_hp_r;
+mem2_hp_r = mem1_hp_r;
+mem1_hp_r = inr;
+mem4_hp_r = mem3_hp_r;
+mem3_hp_r = out_hp_r;
+
+//bp
+out_bp_r = a0_bp*inr-a0_bp*mem2_bp_r-b1_bp*mem3_bp_r-b2_bp*mem4_bp_r;
+mem2_bp_r = mem1_bp_r;
+mem1_bp_r = inr;
+mem4_bp_r = mem3_bp_r;
+mem3_bp_r = out_bp_r;
+
+//br
+out_br_r = a0_br*inr+a1_br*mem1_br_r+a0_br*mem2_br_r-b1_br*mem3_br_r-b2_br*mem4_br_r;
+mem2_br_r = mem1_br_r;
+mem1_br_r = inr;
+mem4_br_r = mem3_br_r;
+mem3_br_r = out_br_r;
+
+//out
+
+//hp, lp
+pair1_r = out_lp_r*y+out_hp_r*(1-y);
+//br, bp
+pair2_r = out_bp_r*y+out_br_r*(1-y);
+//out
+outr = pair2_r*x+pair1_r*(1-x);
+
+spl1 = (outr*(1-amount)+inr*amount)*outgain;
+
+);
+
+
+@gfx 625 308
+ gfx_clear=-1;
+
+  gfx_setfont(1,"Arial",14,'a');
+gfx_a=1;
+gfx_x=gfx_y=0;
+coordinatelist=1000000; // use memory slots 30000-30009
+
+ //posição da imagem de fundo
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=625;
+  coordinatelist[3]=308;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=625;
+  coordinatelist[7]=308;
+  gfx_blitext(0,coordinatelist,0);
+  
+  
+  gfx_a=0.7;
+  //posição da imagem dos knobs shadow
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=77;
+  coordinatelist[3]=77;
+  coordinatelist[4]=487;
+  coordinatelist[5]=53;
+  coordinatelist[6]=70;
+  coordinatelist[7]=70;
+  gfx_blitext(1,coordinatelist,0);
+  coordinatelist[5]=151;
+  gfx_blitext(1,coordinatelist,0);
+  
+  
+  gfx_a=1;
+  //posição da imagem dos knobs
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=77;
+  coordinatelist[3]=77;
+  coordinatelist[4]=491;
+  coordinatelist[5]=155;
+  coordinatelist[6]=63;
+  coordinatelist[7]=63;;
+  coordinatelist[8]=0;
+  coordinatelist[9]=-1;
+  gfx_blitext(2,coordinatelist,-12.6+slider7/10.5+2.6);
+  coordinatelist[5]=58;
+  gfx_blitext(2,coordinatelist,-12.5+slider6/34*1.6);
+  
+  
+
+
+  
+  
+  gfx_r=.5;
+  gfx_b=0.5;
+  gfx_g=0.5;
+  gfx_a=0.6;
+
+  gfx_arc(522,88,29,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,28,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,27,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,26,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,25,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,29,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,28,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,27,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,26,10.21+slider6/31*1.49, 10.2);
+  gfx_arc(522,88,25,10.21+slider6/31*1.49, 10.2);
+  
+  
+  gfx_arc(522,186,29,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,28,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,27,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,26,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,25,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,29,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,28,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,27,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,26,10.2009+slider7/9.9099+2.39, 10.205); 
+  gfx_arc(522,186,25,10.2009+slider7/9.9099+2.39, 10.205); 
+
+
+  
+  
+  
+  gfx_a=0.7;
+  slider1 == 1 ? (
+    coordinatelist[0]=0;
+    coordinatelist[1]=0;
+    coordinatelist[2]=19;
+    coordinatelist[3]=19;
+    coordinatelist[4]=580;
+    coordinatelist[5]=258;
+    coordinatelist[6]=18;
+    coordinatelist[7]=18;
+    gfx_blitext(3,coordinatelist,0);
+  );
+  
+  gfx_a=0.7;
+  slider1 == 0 ? (
+    coordinatelist[0]=70;
+    coordinatelist[1]=0;
+    coordinatelist[2]=70;
+    coordinatelist[3]=70;
+    coordinatelist[4]=540;
+    coordinatelist[5]=243;
+    coordinatelist[6]=50;
+    coordinatelist[7]=50;
+    gfx_blitext(5,coordinatelist,0);
+  );
+  
+  slider1 == 1 ? (
+    coordinatelist[0]=0;
+    coordinatelist[1]=0;
+    coordinatelist[2]=70;
+    coordinatelist[3]=70;
+    coordinatelist[4]=540;
+    coordinatelist[5]=243;
+    coordinatelist[6]=50;
+    coordinatelist[7]=50;
+    gfx_blitext(5,coordinatelist,0);
+  );
+
+
+ //Select Esquerda 
+ mouseon == 9 ? (
+   gfx_a = 1;
+   gfx_r = 1;
+     gfx_g = 0;
+      gfx_b = 0;
+      gfx_roundrect(49,53,172,170,2);
+      
+);
+
+ //Select Esquerda 
+ mouseon == 8 ? (
+   gfx_a = 1;
+   gfx_r = 0;
+     gfx_g = 00.8;
+      gfx_b = 0;
+      gfx_roundrect(249,53,172,170,2);
+      
+);
+
+
+
+  //Linhas seguidoras Esquerda  
+   gfx_r=1;
+   gfx_b=0;
+   gfx_g=0;
+   gfx_a=0.4;
+   
+   gfx_x = old_f_x;
+   gfx_y =55;
+   gfx_lineto(old_f_x,224,1);
+   
+   gfx_x = 49;
+   gfx_y = old_f_y;
+   gfx_lineto(220,old_f_y,1);
+     
+  //Desenho Quadrado Esquerda 
+
+  gfx_r=1;
+  gfx_b=0;
+  gfx_g=0;
+  gfx_a=0.8;
+  gfx_x = old_f_x-7; 
+  gfx_y = old_f_y-7;
+  gfx_rectto(old_f_x+7,old_f_y+7);
+ 
+  
+  
+  
+     //Linhas seguidoras direita
+   gfx_r=0;
+   gfx_b=0.5;
+   gfx_g=1;
+   gfx_a=0.3;
+     gfx_x = old_c_x;
+     gfx_y = 223;
+     gfx_lineto(old_c_x,54,1);
+     
+     gfx_x = 250;
+     gfx_y = old_c_y;
+     gfx_lineto( 421, old_c_y,1);
+  //Desenho Quadrado Direita
+  gfx_r=0;
+  gfx_b=0.5;
+  gfx_g=0.6;
+  gfx_a=0.9;
+  gfx_x = old_c_x-7; 
+  gfx_y = old_c_y-7;
+  gfx_rectto(old_c_x+7,old_c_y+7);
+
+
+mouse_cap > 0 ? (
+  mouseon == 0 ? (
+
+      //button
+     (mouse_x>=554&&mouse_x<=599&&mouse_y>=250&&mouse_y<=280) ? (mouseon=1;mouseclick=1;);
+     //knobs
+    (mouse_x>=500 && mouse_x<=545 && mouse_y>=65 && mouse_y<=105) ? (mouseon = 6;val=2;);
+    (mouse_x>=500 && mouse_x<=545 && mouse_y>=160 && mouse_y<=210) ? (mouseon = 7;val=1;);
+    //Pads
+    (mouse_x>=48 && mouse_x<=218 && mouse_y>=57 && mouse_y<=224) ? (mouseon = 9;val=0.0001;);
+    (mouse_x>=250 && mouse_x<=420 && mouse_y>=57 && mouse_y<=224) ?(mouseon = 8;val=0.05;);
+):(
+  mouse_cap == 5 ? val = 0.3;
+  mouse_cap == 17 ? val = 10;
+  
+  
+
+  
+  
+  );
+
+     mouseon == 7 ? (
+        mouse_y < saveY ? slider7 = max(-24,slider7-val);
+          mouse_y > saveY ? slider7 = min(24,slider7+val);
+      mouse_cap == 2 ? slider7 = 0;
+
+);
+
+  mouseon == 6 ? (
+     mouse_y < saveY ? slider6 = max(0,slider6-val);
+       mouse_y > saveY ? slider6 = min(100,slider6+val);
+   mouse_cap == 2 ? slider6 = 0;
+
+  
+  );
+ 
+  
+  mouseon == 1 ? (
+    done == 0 ? (
+     slider1 == 1 ? (
+       slider1 = 0): (slider1 = 1;);
+    );
+    done = 1;
+  );
+  
+  
+  
+  
+  
+  //Pad Esquerdo
+    mouseon == 9 ? (
+     slider2 = max(0,min((-35+mouse_x)*.09/14,1));
+     slider3 = max(0,min((-35+mouse_y)*.09/14,1));
+     
+     old_f_x = mouse_x;
+     old_f_y = mouse_y;
+     old_f_x = max(57,min(old_f_x,215));
+     old_f_y = max(61,min(old_f_y,216));
+     
+    );
+//*Pad direito
+  mouseon == 8 ? (
+  
+  
+    slider5 = max(0,min((-235+mouse_x)*1.19/8,24));
+    slider4 = max(0,min((-40+mouse_y)*30/47,100));
+    
+   
+    
+    old_c_x = mouse_x;
+    old_c_y = mouse_y;
+    old_c_x = max(42+step,min(old_c_x,201+step));
+    old_c_y = max(60,min(old_c_y,218));
+ 
+ );
+
+
+
+
+amount = (100-slider6)/100;
+outgain = 10^(slider7/20);
+slider7 == -24 ? outgain = 0;
+//  x,y scheme
+//     
+//  hp - br
+//  |     |
+//  lp - bp
+//
+tgt_x = slider2;
+tgt_y = slider3;
+//-------------filters
+sx = 16+slider4*1.20103;
+cx = floor(exp(sx*log(1.059))*8.17742);
+cutoff = 2*cx/srate;
+cx < 50 ? (
+res = 1;
+) : (
+res = 10^(0.05*(-slider5+1.5));
+);
+//lp
+k = 0.5*res*sin($pi*cutoff);
+c1 = 0.5*(1-k)/(1+k);
+c2 = (0.5+c1)*cos($pi*cutoff);
+c3 = (0.5+c1-c2)*0.25;
+tgt_a0_lp = 2*c3;
+tgt_a1_lp = 4*c3;
+tgt_a2_lp = 2*c3;
+tgt_b1_lp = -2*c2;
+tgt_b2_lp = 2*c1;
+//hp
+c3 = (0.5+c1+c2)*0.25;
+tgt_a0_hp = 2*c3;
+tgt_a1_hp = -4*c3;
+tgt_a2_hp = 2*c3;
+tgt_b1_hp = -2*c2;
+tgt_b2_hp = 2*c1;
+//bp
+c3 = (0.5+c1-c2)*0.25;
+tgt_a0_bp = k/(1+k);
+tgt_b1_bp = -2*c2;
+tgt_b2_bp = 2*c1;
+//br
+k = 2*res*sin($pi*cutoff);
+c1 = 0.5*(1-k)/(1+k);
+c2 = (0.5+c1)*cos($pi*cutoff);
+c3 = (0.5+c1-c2)*0.25;
+tgt_a0_br = 1/(1+k);
+tgt_a1_br = tgt_a0_br*(-2*cos($pi*cutoff));
+tgt_b1_br = -2*c2;
+tgt_b2_br = 2*c1;
+
+ 
+  saveX=mouse_x;
+  saveY=mouse_y;
+): (done=0;mouseon=0;);
+
+
+
+
+//texto Direito
+gfx_r=150;
+gfx_b=0;
+gfx_g=1;
+gfx_a=1;
+gfx_x = 56;
+gfx_y = 58;
+gfx_drawchar($'H');
+gfx_drawchar($'P');
+gfx_x = 56;
+gfx_y = 206;
+gfx_drawchar($'L');
+gfx_drawchar($'P');
+gfx_x = 200;
+gfx_y = 58;
+gfx_drawchar($'B');
+gfx_drawchar($'R');
+gfx_x = 200;
+gfx_y = 206;
+gfx_drawchar($'B');
+gfx_drawchar($'P');
+
+//Texto Esquerdo
+gfx_r=150;
+gfx_b=0;
+gfx_g=1;
+gfx_a=1;
+gfx_x = 184+step;
+gfx_y = 59;
+gfx_drawchar($'R');
+gfx_drawchar($'e');
+gfx_drawchar($'s');
+gfx_x = 44+step;
+gfx_y = 205;
+gfx_drawchar($'C');
+gfx_drawchar($'u');
+gfx_drawchar($'t');
+//Linha Amarela Res e Cut
+gfx_r=1;
+gfx_b=0;
+gfx_g=1;
+gfx_a=1;
+gfx_x = 194+step;
+gfx_y = 135;
+gfx_lineto(194+step,80,0.5);
+gfx_x = 67+step;
+gfx_y = 212;
+gfx_lineto(118+step,212,0.5);
+
+gfx_a = 0.8;
+   gfx_r = 1;
+     gfx_g = 1;
+      gfx_b = 1;
+     
+  gfx_x=492;
+   gfx_y=35;
+  gfx_drawstr("Filter Percent");
+  gfx_x=507;
+  gfx_y=135;
+  gfx_drawstr("Output");
+  
+  
+ slider1 == 1 ?
+      (  
+  gfx_x=563;
+  gfx_y=236;
+  gfx_drawstr("Mono");
+  
+  );
+  
+  
+  slider1 == 0 ?
+       (  
+   gfx_x=561;
+   gfx_y=236;
+   gfx_drawstr("Stereo");
+   
+   );
+  
+  gfx_a = 1;
+  gfx_r = 1;
+    gfx_g = 1;
+     gfx_b = 0;
+     
+     
+  mouseon==6 ?
+      (  
+     doCenterText(521,125, slider6);
+         gfx_drawchar($'%');
+         );
+         
+     mouseon==7 ?
+       (  
+     doCenterText(518,227, slider7);
+     gfx_drawchar($'d');
+     gfx_drawchar($'b');
+);
+
+mouseon==8 ? (
+   //freq display
+   gfx_x=310;
+   gfx_y=60;
+   gfx_drawchar($'F');
+   gfx_drawchar($' ');
+   gfx_drawchar($'=');
+   gfx_drawchar($' ');
+   gfx_drawnumber(cx,0);
+   gfx_drawchar($' ');
+   gfx_drawchar($'H');
+   gfx_drawchar($'z');
+ ); 
+ 
+      
+      
+      
+
+   gfx_setfont(1,"IMPACT",39,'1');
+   
+   gfx_r = 0;
+     gfx_g = 0;
+      gfx_b = 0;
+     
+   gfx_x=138;
+   gfx_y=242;
+   gfx_drawstr("Morphing Filter");
+   
+   gfx_a = 0.6;
+   gfx_r = 1;
+     gfx_g = 1;
+      gfx_b = 1;
+     
+   gfx_x=136;
+   gfx_y=242;
+   gfx_drawstr("Morphing Filter");
+   
+   
+
+
+   //info!!! gfx_rect(middleX-120,middleY-100,250,130);
+   
+   gfx_setfont(1,"Arial Black",14,'a');
+   help.x=520;            
+   help.y=3;
+
+ gfx_r = 1; gfx_g = 0.9; gfx_b = 0; gfx_a = 0.8;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Click Here!!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +70 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+ 
+ 
+ 
+ 
+ 
+ gfx_setfont(1,"Arial",14,'a');
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 600/2; middleY = 300/2;
+  gfx_r = 0.; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_x = 0; gfx_y = 0;
+gfx_blit(4,1,0);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-110; gfx_y = middleY-94;
+
+  gfx_drawstr("                             Author Plugin:
+       (C) 2008-2009, Lubomir I. Ivanov (Liteon)
+                       Released under GPL:
+             <http://www.gnu.org/licenses/>.
+                    
+                                                                             CodeGFX/Skin: Gil Fernandes
+                                                                                  Youtube.com/GFbeats 
+
+                      
+                         "
+
+);
+  displayHelp *= 0.5;
+);
+        gfx_a = 1;   
+         gfx_r = 0;
+           gfx_g = 0;
+            gfx_b = 0;
+         gfx_x=580;
+          gfx_y=292;
+         gfx_drawstr("V1.5");
+          //displayOutput
+          
+          
+          
+          

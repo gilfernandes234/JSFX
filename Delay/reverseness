@@ -1,0 +1,467 @@
+// This effect Copyright (C) 2004 and later Cockos Incorporated
+// License: LGPL - http://www.gnu.org/licenses/lgpl.html
+// fade fix/improvements thanks to dan mcmullen
+
+desc: Delay w/Reverseness
+//tags: processing sampler mangler delay
+//author: Cockos
+
+filename:0,b5.png
+filename:1,s1.png
+filename:2,s2.png
+filename:3,f2.png
+filename:4,k2.png
+
+slider1:500<0,4000,10>-Length (ms)
+slider2:-6<-60,6,1>-Wet Mix (dB)
+slider3:-6<-60,6,1>-Dry Mix (dB)
+slider4:0.1<0,1>-Edge Overlap
+slider5:0<0,1,1{Off,On}>-Old Compatible And Clicky Mode
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+@init
+  pos=0;
+
+@slider
+  len=srate*slider1/1000; 
+  wet=2 ^ (slider2/6); 
+  dry=2 ^ (slider3/6); 
+  nonclickymode = slider5 != 1;
+  fadelen=len*min(slider4,nonclickymode?0.5:1.0)*0.5;
+  freembuf(len*2);
+  
+@sample
+
+s0=((len-pos)*2)[0];
+s1=((len-pos)*2)[1];
+(pos*2)[0]=spl0;
+(pos*2)[1]=spl1;
+
+pp=len-pos;
+w2=pp<fadelen ? pp/fadelen : (pp > len-fadelen?(len-pp)/fadelen:1);
+
+nonclickymode && w2 == 1 ?(
+  pp= abs(len*0.5-pos);
+  w2= pp<fadelen ? pp/fadelen : 1;
+);
+
+spl0=s0*wet*w2 + spl0*(dry + 1-w2);
+spl1=s1*wet*w2 + spl1*(dry + 1-w2);
+
+(pos+=1)>=len ? pos=0;
+
+@gfx 445 250
+
+
+  gfx_setfont(1,"Arial",14,'a');
+gfx_a=1;
+gfx_x=gfx_y=0;
+coordinatelist=1000000; // use memory slots 30000-30009
+
+
+//set up and draw the background graphics
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=550;
+  coordinatelist[3]=342;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=445;
+  coordinatelist[7]=250;
+  coordinatelist[8]=0;
+  coordinatelist[9]=rotation_y_offset;
+  gfx_blitext(0,coordinatelist,0);
+  
+  coordinatelist[0]=-3;
+  coordinatelist[1]=-3;
+  coordinatelist[2]=131;
+  coordinatelist[3]=131;
+  coordinatelist[4]=20;
+  coordinatelist[5]=48;
+  coordinatelist[6]=100;
+  coordinatelist[7]=100;
+  coordinatelist[8]=rotation_x_offset;
+  coordinatelist[9]=rotation_y_offset;
+  gfx_blitext(1,coordinatelist,1.08+slider2/13.0+3.5);
+  
+  coordinatelist[4]=320;
+
+  gfx_blitext(1,coordinatelist,1.08+slider3/13.0+3.5);
+  coordinatelist[4]=170;
+  gfx_blitext(2,coordinatelist, 3.2+slider4/0.2+3.1);
+  
+  
+  slider5 == 1 ? (
+    coordinatelist[0]=0;
+    coordinatelist[1]=0;
+    coordinatelist[2]=19;
+    coordinatelist[3]=19;
+    coordinatelist[4]=415;
+    coordinatelist[5]=5;
+    coordinatelist[6]=17;
+    coordinatelist[7]=17;
+    gfx_blitext(4,coordinatelist,0);
+  );
+
+
+mouse_cap > 0 ? (
+  mouseon == 0 ? (
+    mouseclick = 0;
+    mouse_cap == 5 ? val=0.5 : val = 5;
+    (mouse_x>=29&&mouse_x<=410&&mouse_y>=195&&mouse_y<=220) ? (mouseon=1;mouseclick=1;);
+    (mouse_x>=30&&mouse_x<=112&&mouse_y>=47&&mouse_y<=135) ? (mouseon=2;mouseclick=2;val=1;);
+   (mouse_x>=325&&mouse_x<=413&&mouse_y>=47&&mouse_y<=135) ? (mouseon=3;mouseclick=3;val=1;);
+   (mouse_x>=182&&mouse_x<=263&&mouse_y>=47&&mouse_y<=135) ? (mouseon=4;mouseclick=4;val=0.01;);
+    (mouse_x>=415&&mouse_x<=430&&mouse_y>=2&&mouse_y<=20) ? (mouseon=5;mouseclick=5;);
+    
+    
+  );
+
+
+    
+  mouseon == 1 ? (
+    mouse_cap == 1 ? slider1 = max(0,min((mouse_x-35)/0.09,4000)):
+    mouse_cap == 2 ? slider1 = 300;
+  );
+  
+
+      mouseon == 2 ? (
+        mouse_y < saveY ? slider2 = max(-60,slider2-val);
+          mouse_y > saveY ? slider2 = min(6,slider2+val);
+      mouse_cap == 2 ? slider2 = -4;
+
+  );
+  
+  mouseon == 3 ? (
+    mouse_y < saveY ? slider3 = max(-60,slider3-val);
+      mouse_y > saveY ? slider3 = min(6,slider3+val);
+  mouse_cap == 2 ? slider3 = -4;
+  
+  );
+     mouseon == 4 ? (
+       mouse_y < saveY ? slider4 = max(0.001,slider4-val);
+         mouse_y > saveY ? slider4 = min(1,slider4+val);
+     mouse_cap == 2 ? slider4 = 0;
+ ); 
+
+  mouseon == 5 ? (
+    done == 0 ? (
+     slider5 == 1 ? (
+       slider5 = 0): (slider5 = 1;);
+    );
+    done = 1;
+  );
+
+
+
+  len=srate*slider1/1000; 
+  wet=2 ^ (slider2/6); 
+  dry=2 ^ (slider3/6); 
+  nonclickymode = slider5 != 1;
+  fadelen=len*min(slider4,nonclickymode?0.5:1.0)*0.5;
+  freembuf(len*2);
+
+
+
+
+
+
+  saveX=mouse_x;
+  saveY=mouse_y;
+
+): (done=0;mouseon=0;);
+  
+  
+ gfx_r = 0.6;
+  gfx_g = 1;
+   gfx_b = 0.6;
+
+ 
+   gfx_x = 60;
+   gfx_y = 39;
+   gfx_drawchar($'W');
+   gfx_drawchar($'e');
+   gfx_drawchar($'t');
+   
+   gfx_x = 362;
+   gfx_drawchar($'D');
+   gfx_drawchar($'r');
+   gfx_drawchar($'y');
+   
+   gfx_x = 200;
+   gfx_drawchar($'O');
+   gfx_drawchar($'v');
+   gfx_drawchar($'e');
+   gfx_drawchar($'r');
+   gfx_drawchar($'l');
+   gfx_drawchar($'a');
+   gfx_drawchar($'p');
+
+
+   
+     gfx_r = 0.7;
+       gfx_g = 0.7;
+        gfx_b = 0.7;
+        
+        gfx_x = 370;
+        gfx_y = 236;
+        gfx_drawchar($'G');
+        gfx_drawchar($'i');
+        gfx_drawchar($'l');
+        gfx_drawchar($' ');
+        gfx_drawchar($'F');
+        gfx_drawchar($'e');
+        gfx_drawchar($'r');
+        gfx_drawchar($'n');
+        gfx_drawchar($'a');
+        gfx_drawchar($'n');
+        gfx_drawchar($'d');
+        gfx_drawchar($'e');
+        gfx_drawchar($'s');
+        
+        gfx_a = 0.9;
+        gfx_y = 6;
+        gfx_x = 367;
+        gfx_drawchar($'O');
+        gfx_drawchar($'l');
+        gfx_drawchar($'d');
+        gfx_drawchar($' ');
+        gfx_drawchar($'M');
+        gfx_drawchar($'o');
+        gfx_drawchar($'d');
+        gfx_drawchar($'e');
+        gfx_drawchar($':');
+        
+        
+        gfx_a = 1;
+        gfx_r = 0.8;
+          gfx_g = 1;
+           gfx_b = 0;
+           
+         
+           gfx_x = 378;
+           gfx_y = 176;
+           gfx_drawchar($'4');
+           gfx_drawchar($'0');
+           gfx_drawchar($'0');
+           gfx_drawchar($'0');
+           gfx_drawchar($'m');
+           gfx_drawchar($'s');
+           
+           gfx_x = 27;
+          
+
+           gfx_drawchar($'0');
+           gfx_drawchar($'m');
+           gfx_drawchar($'s');
+           
+           gfx_x = 203;
+           
+           gfx_drawchar($'2');
+           gfx_drawchar($'0');
+           gfx_drawchar($'4');
+           gfx_drawchar($'4');
+           gfx_drawchar($'m');
+           gfx_drawchar($'s');
+           
+           
+           gfx_x = 108;
+           
+           gfx_drawchar($'9');
+           gfx_drawchar($'4');
+           gfx_drawchar($'4');
+           gfx_drawchar($'m');
+           gfx_drawchar($'s');
+           
+           gfx_x = 290;
+           
+           gfx_drawchar($'3');
+           gfx_drawchar($'0');
+           gfx_drawchar($'2');
+           gfx_drawchar($'2');
+           gfx_drawchar($'m');
+           gfx_drawchar($'s');
+           
+
+   gfx_r = 0;
+     gfx_g = 1;
+      gfx_b = 0.9;
+     
+
+     
+     //Dry
+     mouseon==3 ?
+         (
+     gfx_x=354;gfx_y=145;
+     gfx_drawnumber(slider3,0);
+     gfx_drawchar($'d');
+     gfx_drawchar($'b');
+     
+     );
+     
+     
+     //Dry
+     mouseon==2 ?
+         (
+     gfx_x=55;gfx_y=145;
+     gfx_drawnumber(slider2,0);
+     gfx_drawchar($'d');
+     gfx_drawchar($'b');
+     
+     );
+     
+     //Dry
+      mouseon==4 ?
+          (
+      gfx_x=205;gfx_y=145;
+      gfx_drawnumber(slider4,3);
+
+      
+      );
+     
+ 
+     
+
+      mouseon==1 ?
+        (
+        gfx_y=234; 
+         gfx_x=200;
+      gfx_drawnumber(slider1,0);
+      gfx_drawchar($'m');
+      gfx_drawchar($'s');
+      
+        );
+      
+      
+      
+      
+      gfx_rect(38,189,1,9);
+      gfx_rect(123,189,1,9);
+      gfx_rect(222,189,1,9);
+      gfx_rect(309,189,1,9);
+      gfx_rect(398,189,1,9);
+      
+      gfx_rect(75,189,1,9);
+      gfx_rect(174,189,1,9);
+      gfx_rect(266,189,1,9);
+      gfx_rect(356,189,1,9);
+      
+      
+      coordinatelist[0]=0;
+       coordinatelist[1]=0;
+       coordinatelist[2]=128;
+       coordinatelist[3]=128;
+       coordinatelist[4]=19+slider1*0.09;
+       coordinatelist[5]=190;
+       coordinatelist[6]=38;
+       coordinatelist[7]=38;
+       coordinatelist[8]=rotation_x_offset;
+       coordinatelist[9]=rotation_y_offset;
+       gfx_blitext(3,coordinatelist,0);
+       
+       
+
+       
+       
+       
+       gfx_r = 0.4;
+        gfx_g = 0.7;
+         gfx_b = 0.4;
+           gfx_x=30;gfx_y=218;
+           gfx_rectto(30+slider1*0.09,200);
+
+               
+               
+               
+   gfx_a=0.6;
+   //knobs  aRC
+   gfx_r=0.9;
+   gfx_g=0.9;
+   gfx_b=0;
+  
+   //Wet
+  
+  gfx_arc(70,98,36,11.2+slider2/13.0+3.5, 10);             
+  gfx_arc(70,98,37,11.2+slider2/13.0+3.5, 10);             
+  gfx_arc(70,98,38,11.2+slider2/13.0+3.5, 10);             
+  gfx_arc(70,98,39,11.2+slider2/13.0+3.5, 10);
+  gfx_arc(70,98,36,11.2+slider2/13.0+3.5, 10);             
+  gfx_arc(70,98,37,11.2+slider2/13.0+3.5, 10);             
+  gfx_arc(70,98,38,11.2+slider2/13.0+3.5, 10);             
+  gfx_arc(70,98,39,11.2+slider2/13.0+3.5, 10); 
+  
+   //Dry
+  
+  gfx_arc(370,98,36,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,37,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,38,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,39,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,36,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,37,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,38,11.2+slider3/13.0+3.5, 10);  
+  gfx_arc(370,98,39,11.2+slider3/13.0+3.5, 10);  
+  
+
+       //Ratio
+       gfx_arc(220,98,36,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,37,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,38,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,39,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,36,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,37,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,38,7.1+slider4/0.2+3.1, 10);
+       gfx_arc(220,98,39,7.1+slider4/0.2+3.1, 10);
+
+
+  
+   //info!!!
+   help.x=15;            
+   help.y=234;
+
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.5;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Info!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +50 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 420/2; middleY = 260/2;
+  gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_rect(middleX-120,middleY-120,250,170);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-100; gfx_y = middleY-100;
+
+  gfx_drawstr("Author: This effect Copyright (C) 2004 
+and later Cockos Incorporated
+\nLicense: LGPL:
+http://www.gnu.org/licenses/lgpl.html
+\nSkin: Gil Fernandes
+\nYoutube.com/Gfbeats    "
+
+);
+  displayHelp *= 0.9;
+);
+
+ gfx_x = 100; gfx_y = -2;
+ gfx_r = 0.7; gfx_g = 0; gfx_b = 0; gfx_a = 0.4;
+ gfx_setfont(1,"Arial Black",45,'a');
+ gfx_drawstr("Reverseness"); 
+ 
+ gfx_x = 102; gfx_y = -4;
+ gfx_r = 1; gfx_g = 0; gfx_b = 0; gfx_a = 1;
+ gfx_setfont(1,"Arial Black",45,'a');
+ gfx_drawstr("Reverseness");
+ 

@@ -1,0 +1,116 @@
+desc: Delay v2
+
+filename:0,DelayGUI.png
+
+slider1:300<0,4000,20>-delay (ms)
+slider2:-5<-120,6,1>-feedback (dB)
+slider3:0<-120,6,1>-mix in (dB)
+slider4:-6<-120,6,1>-output wet (dB)
+slider5:0<-120,6,1>-output dry (dB)
+slider6:0<0,1,1>-resample on length change
+slider7:0<-120,4000,0.05>-(Optional) Enter value for last clicked knob
+
+import JSSuite_GUI.jsfx-inc
+
+@init
+delaypos=0;
+
+function doSliderCode()(
+slider7 != saveSL7 ? (
+  mouseclick == 1 ? slider1 = max(min(slider7,4000),0);
+  mouseclick == 2 ? slider2 = max(min(slider7,6),-120);
+  mouseclick == 3 ? slider3 = max(min(slider7,6),-120);
+  mouseclick == 4 ? slider4 = max(min(slider7,6),-120);
+  mouseclick == 5 ? slider5 = max(min(slider7,6),-120);
+  saveSL7 = slider7;
+  );
+
+odelay=delaylen;
+delaylen=min(slider1 * srate / 1000,500000);
+odelay != delaylen ? (
+  slider6 && odelay > delaylen ? (
+      // resample down delay buffer, heh
+      rspos=0; rspos2=0;
+      drspos=odelay/delaylen;
+      loop(delaylen,
+         
+         tpos = ((rspos)|0)*2;
+         rspos2[0]=tpos[0];
+         rspos2[1]=tpos[1];
+
+         rspos2+=2;
+         rspos+=drspos;
+      );
+      delaypos /= drspos;
+      delaypos|=0;
+      delaypos<0?delaypos=0;
+  ) : (
+    slider6 && odelay < delaylen ? (
+        // resample up delay buffer, heh
+        drspos=odelay/delaylen;
+        rspos=odelay; 
+        rspos2=delaylen*2;
+        loop(delaylen,
+           rspos-=drspos;
+           rspos2-=2;
+         
+           tpos = ((rspos)|0)*2;
+           rspos2[0]=tpos[0];
+           rspos2[1]=tpos[1];
+
+        );
+        delaypos /= drspos;
+        delaypos|=0;
+        delaypos<0?delaypos=0;
+    ) : (!slider6 && delaypos >= delaylen ? delaypos = 0);
+  );
+  freembuf(delaylen*2);
+);
+
+wetmix = 2 ^(slider2/6);
+drymix = 2 ^(slider3/6);
+wetmix2 = 2 ^(slider4/6);
+drymix2 = 2 ^(slider5/6);
+
+);
+
+@slider
+doSliderCode();
+
+@sample
+/*
+dpint = delaypos*2;
+os1=dpint[0];
+os2=dpint[1];
+
+dpint[0]=min(max(spl0*drymix + os1*wetmix,-4),4);
+dpint[1]=min(max(spl1*drymix + os2*wetmix,-4),4);
+
+(delaypos+=1) >= delaylen ? delaypos=0;
+
+spl0=spl0*drymix2 + os1*wetmix2;
+spl1=spl1*drymix2 + os2*wetmix2;
+*/
+dpint = delaypos*2;
+os1=dpint[0];
+os2=dpint[1];
+dpint[0]=min(max((spl0+spl1)*drymix + os2*wetmix,-4),4);
+dpint[1]=min(max(os1*wetmix,-4),4);
+(delaypos+=1) >= delaylen ? delaypos=0;
+spl0=spl0*drymix2 + os1*wetmix2;
+spl1=spl0*drymix2 + os2*wetmix2;
+
+@gfx 488 242
+gfx_blit(0,1,0,0,0,488,242,0,0,488,242,0,0);
+
+slider1 = doHSlider(1,16,52,420,25,slider1,0,4000,300,20,106,32);
+slider2 = doKnob(2,63,155,30,slider2,slider2*.035+4.3,6,-120,-5,1,1);
+slider3 = doKnob(3,183,155,30,slider3,slider3*.035+4.3,6,-120,0,1,1);
+slider4 = doKnob(4,303,155,30,slider4,slider4*.035+4.3,6,-120,-6,1,1);
+slider5 = doKnob(5,423,155,30,slider5,slider5*.035+4.3,6,-120,-6,1,1);
+slider6 = doOnOffButton(6,190,31,10,slider6,15,-10);
+
+doSliderCode();
+
+saveX=mouse_x;
+saveY=mouse_y;

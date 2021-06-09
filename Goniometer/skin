@@ -1,0 +1,298 @@
+(C) 2007, Michael Gruhn.
+
+desc:Goniometer
+desc:Goniometer [LOSER]
+//tags: analysis visualization
+//author: LOSER
+filename:0,b1.png
+filename:1,m4.png
+
+slider1:0<0,2,1>-Display
+
+in_pin:left input
+in_pin:right input
+out_pin:none
+
+@init
+gfx_clear=-1;
+off = 500000;
+rot=-45*0.017453292;
+DOTS = 0;
+LINES = 1;
+RAYS = 2;
+MAXDRAWSPLS = 1000;
+PHASEUPDATERATE = srate/8;
+n = 0;
+phC = 0;
+ph = 0;
+@slider
+
+@block
+
+@sample
+s0 = sign(spl0);
+s1 = sign(spl1);
+angle = atan( spl0 / spl1 );
+(s0 == 1 && s1 == -1) || (s0 == -1 && s1 == -1) ? angle += 3.141592654;
+s0 == -1 && s1 == 1 ? angle += 6.283185307;
+spl1 == 0 ? spl0 > 0 ? angle = 1.570796327 : angle = 4.71238898;
+spl0 == 0 ? spl1 > 0 ? angle = 0 : angle = 3.141592654;
+radius = sqrt( sqr(spl0)+sqr(spl1) ) ;
+angle -= rot;
+vert = 0[b] = cos(angle)*radius;
+horiz = off[b] = sin(angle)*radius;
+b<MAXDRAWSPLS ? b += 1;
+
+
+s0 != s1 ? phC-=1:phC+=1;
+(n+=1) > PHASEUPDATERATE ? (
+  ph = (1-(phC/n))/2;
+  phC = n = 0;
+);
+@gfx 720 615
+  
+    
+(mouse_cap&1) ? (
+  need_redraw=1;
+  mouse_y> 30 && mouse_y < 70 ? (
+    mousedown=1;
+    val=slider1;
+    mouse_x > 258 && mouse_x < 279 ? (val=0);
+    mouse_x > 310 && mouse_x < 333 ? (val=1);
+    mouse_x > 368 && mouse_x < 385 ? (val=2);
+  );
+  mouse_cap == 5 ? (val /= 4 );  
+)
+:
+(
+  mousedown = 0;
+     need_redraw=0;
+);
+
+
+
+mousedown == 1 ? (slider1 = val);
+
+
+
+
+
+  
+size =  min+max(650,969); 
+sizeH = size/3;
+sizeDSqr05 = sizeH/1 ;
+sizeQ = sizeH/2;
+size3Q = 3*sizeQ;
+
+gfx_r=gfx_g=gfx_b=0; gfx_a=0.166;
+gfx_x=gfx_y=0;
+gfx_rectto(gfx_w,gfx_h);
+
+x = y = sizeH;
+
+i = min(b,MAXDRAWSPLS);
+while (
+  slider1 == DOTS ? (
+  
+  gfx_a=1;
+  gfx_x=sizeH+0[i]*sizeDSqr05;
+  gfx_y=sizeH-off[i]*sizeDSqr05;
+  gfx_setpixel(0.5,6,0);
+  ):(
+  
+    slider1 == LINES ? (
+      gfx_x=x; gfx_y=y;
+      x=sizeH+0[i]*sizeDSqr05;
+      y=sizeH-off[i]*sizeDSqr05;
+      
+    ):(
+      gfx_x=sizeH+0[i]*sizeDSqr05;
+      gfx_y=sizeH-off[i]*sizeDSqr05;
+      
+    );
+      gfx_r=0.1; gfx_g=1; gfx_b=0.6; gfx_a=1;
+  gfx_lineto(x,y,0);
+  );
+  (i-=1)>0;
+);
+b=0;
+
+
+  coordinatelist=1000000; 
+  //posição da imagem de fundo
+   coordinatelist[0]=0;
+   coordinatelist[1]=0;
+   coordinatelist[2]=720;
+   coordinatelist[3]=615;
+   coordinatelist[4]=0;
+   coordinatelist[5]=0;
+   coordinatelist[6]=720;
+   coordinatelist[7]=615;
+   coordinatelist[8]=0;
+   coordinatelist[9]=0; 
+   gfx_blitext(0    ,coordinatelist,0);
+
+gfx_r=0.5;
+gfx_g=0.5;
+gfx_b=0.5; gfx_a=0.4;
+
+gfx_x=sizeQ; gfx_y=sizeQ;
+gfx_lineto(size3Q,size3Q,0);
+
+gfx_x=sizeQ; gfx_y=size3Q;
+gfx_lineto(size3Q,sizeQ,0);
+
+
+
+
+gfx_r=0.7; gfx_g=1; gfx_b=0.1; gfx_a=1;
+
+gfx_rect(633,ph*400+121,29,3);
+
+gfx_r=0.7; gfx_g=1; gfx_b=0.1; gfx_a=1;
+
+  gfx_y = 122; 
+  gfx_x = 672;
+  
+  
+  gfx_drawchar($'+');
+  gfx_drawchar($'1');
+  
+  gfx_y = 326; 
+  gfx_x = 674;
+  
+  gfx_drawchar($'0');
+  
+  
+  gfx_r=0; gfx_g=1; gfx_b=0.1; gfx_a=1;
+  gfx_y = 100; 
+  gfx_x = 621;
+  gfx_drawchar($'C');
+  gfx_drawchar($'o');
+  gfx_drawchar($'r');
+  gfx_drawchar($'r');
+  gfx_drawchar($'e');
+  gfx_drawchar($'l');
+  gfx_drawchar($'a');
+  gfx_drawchar($'t');
+  gfx_drawchar($'i');
+  gfx_drawchar($'o');
+  gfx_drawchar($'n');
+  
+  gfx_y = 530; 
+  gfx_x = 672;
+  
+  gfx_drawchar($'-');
+  gfx_drawchar($'1');
+  
+  gfx_rect(625,330,42,1);
+  gfx_rect(625,122,42,1);
+  gfx_rect(625,534,42,1);
+  
+
+  
+  
+  gfx_y = 98; 
+  gfx_x = 323;
+  
+  gfx_drawchar($'M');
+  
+  gfx_y = 322; 
+  gfx_x = 553;
+  
+  
+  gfx_drawchar($'-');
+  gfx_drawchar($'S');
+  
+  gfx_y = 322; 
+  gfx_x = 80;
+  
+
+  gfx_drawchar($'+');
+  gfx_drawchar($'S');
+  
+
+  
+  
+  
+  
+  
+  gfx_y = 595; 
+  gfx_x =610;
+  
+  gfx_drawchar($'G');
+  gfx_drawchar($'i');
+  gfx_drawchar($'l');
+  gfx_drawchar($' ');
+  gfx_drawchar($'F');
+  gfx_drawchar($'e');
+  gfx_drawchar($'r');
+  gfx_drawchar($'n');
+  gfx_drawchar($'a');
+  gfx_drawchar($'n');
+  gfx_drawchar($'d');
+  gfx_drawchar($'e');
+  gfx_drawchar($'s');
+  gfx_drawchar($' ');
+  gfx_drawchar($'V');
+  gfx_drawchar($'1');
+  gfx_drawchar($'.');
+  gfx_drawchar($'3');
+  
+   
+
+    
+    coordinatelist[0]=0;
+    coordinatelist[1]=0;
+    coordinatelist[2]=20;
+    coordinatelist[3]=41;
+    coordinatelist[5]=46;
+    coordinatelist[6]=20;
+    coordinatelist[7]=41;
+    coordinatelist[8]=rotation_x_offset; 
+    coordinatelist[9]=rotation_y_offset;   
+  
+   coordinatelist[4]=slider1*55+260;
+   gfx_blitext(1,coordinatelist,0);
+  
+  
+   help.x=20;            
+   help.y=589;
+
+
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Info!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +50 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+  gfx_setfont(1,"Arial",14,'a');
+  
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 642/2; middleY = 690/2;
+  gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_rect(middleX-98,middleY-120,220,115);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-100; gfx_y = middleY-100;
+
+  gfx_drawstr("                                 Author:
+                   (C) 2007, Michael Gruhn.
+  
+                    Skin: Gil Fernandes
+                    Youtube.com/Gfbeats 
+"
+        
+);
+
+  displayHelp *=0.85;
+);
+       
+     

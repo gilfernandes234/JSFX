@@ -1,0 +1,743 @@
+  
+desc:ReaSaturation
+
+filename:0,bg1.png
+
+
+
+slider1:0<-24,24,0.1>-Input 
+slider2:50<1,100,1>-Drive
+slider3:-6<-24,24,0.1>-Wet
+slider4:-6<-24,24,0.1>-Dry 
+slider5:70<20,1500,5>-size_graphic_wave 
+
+slider6:0<0,1000,10>-Low Cut
+slider7:22000<12000,22000,100>-highCut
+
+
+in_pin:Left   Input
+in_pin:Right  Input
+out_pin:Left   Output
+out_pin:Right  Output
+
+
+@init
+ updateAlways = 1;
+gfx_clear=1;
+
+function tanh(x) (
+x = exp(2*x);
+(x - 1) / (x + 1);
+);
+
+histbuf=1000000;
+histpos=1;
+
+function doMouseWheel(slideval,minval,maxval,inc)(
+  mouse_wheel < 0? slideval = Max(minval,slideval-inc);
+  mouse_wheel > 0? slideval = Min(maxval,slideval+inc);
+  mouse_wheel = 0;
+  slideval;
+);
+slider1 = doMouseWheel(slider1,-60,0,val);
+@slider
+pregain = 10^(slider1/20);
+tube = (slider2+6.24)*0.1186;
+
+wetgain = slider3 <= -24.0 ? 0.0 : 10^(slider3/20);
+drygain = slider4 <= -24.0 ? 0.0 : 10^(slider4/20);
+
+size=slider5;
+histsize=size/1000*srate|0;
+
+
+  hpf = 0;
+  freq1 = slider6;
+  a1 = 1;
+  s1 = 1;
+  q1 = 1 / (sqrt((a1 + 1/a1)*(1/s1 - 1) + 2));
+  w01 = 2 * $pi * freq1/srate;
+  cosw01 = cos(w01);
+  sinw01 = sin(w01);
+  alpha1 = sinw01 / (2 * q1);
+
+  b01 = (1 + cosw01)/2;
+  b11 = -(1 + cosw01);
+  b21 = (1 + cosw01)/2;
+  a01 = 1 + alpha1;
+  a11 = -2 * cosw01;
+  a21 = 1 - alpha1;
+  b01 /= a01;
+  b11 /= a01;
+  b21 /= a01;
+  a11 /= a01;
+  a21 /= a01;
+
+  lpf = 0;
+  gain3 = 0;
+  freq3 = 22000;
+  a3 = 10^(gain3/40);
+  s3 = 2;
+  q3 = 1 / (sqrt((a3 + 1/a3)*(1/s3 - 1) + 2));
+  w03 = 2 * $pi * freq3/srate;
+  cosw03 = cos(w03);
+  sinw03 = sin(w03);
+  alpha3 = sinw03 / (2 * q3);
+
+  b03 = (1 - cosw03)/2;
+  b13 = (1 - cosw03);
+  b23 = (1 - cosw03)/2;
+  a03 = 1 + alpha3;
+  a13 = -2 * cosw03;
+  a23 = 1 - alpha3;
+  b03 /= a03;
+  b13 /= a03;
+  b23 /= a03;
+  a13 /= a03;
+  a23 /= a03;
+
+  gain = 1;
+
+
+
+
+
+@slider
+
+pregain = 10^(slider1/20);
+tube = (slider2+6.24)*0.1186;
+
+wetgain = slider3 <= -24.0 ? 0.0 : 10^(slider3/20);
+drygain = slider4 <= -24.0 ? 0.0 : 10^(slider4/20);
+
+size=slider5;
+histsize=size/1000*srate|0;
+
+
+
+
+  freq1 = slider6;
+  freq3 = slider7;
+
+
+  slider6 == 0 ? hpf = 0 : hpf = 1;
+  slider7 == 22000 ? lpf = 0 : lpf = 1;
+
+  a1 = 1;
+  s1 = 1;
+  q1 = 1 / (sqrt((a1 + 1/a1)*(1/s1 - 1) + 2));
+  w01 = 2 * $pi * freq1/srate;
+  cosw01 = cos(w01);
+  sinw01 = sin(w01);
+  alpha1 = sinw01 / (2 * q1);
+
+  b01 = (1 + cosw01)/2;
+  b11 = -(1 + cosw01);
+  b21 = (1 + cosw01)/2;
+  a01 = 1 + alpha1;
+  a11 = -2 * cosw01;
+  a21 = 1 - alpha1;
+  b01 /= a01;
+  b11 /= a01;
+  b21 /= a01;
+  a11 /= a01;
+  a21 /= a01;
+
+  a3 = 1;
+  s3 = 1;
+  q3 = 1 / (sqrt((a3 + 1/a3)*(1/s3 - 1) + 2));
+  w03 = 2 * $pi * freq3/srate;
+  cosw03 = cos(w03);
+  sinw03 = sin(w03);
+  alpha3 = sinw03 / (2 * q3);
+
+  b03 = (1 - cosw03)/2;
+  b13 = (1 - cosw03);
+  b23 = (1 - cosw03)/2;
+  a03 = 1 + alpha3;
+  a13 = -2 * cosw03;
+  a23 = 1 - alpha3;
+  b03 /= a03;
+  b13 /= a03;
+  b23 /= a03;
+  a13 /= a03;
+  a23 /= a03;
+
+
+@sample
+
+in0 = spl0;
+in1 = spl1;
+
+wet0 = tanh(spl0*pregain);
+wet1 = tanh(spl1*pregain);
+
+out0 = (((exp(wet0*tube) - exp(wet0*tube * -1.2)) / (exp(wet0*tube) + exp(wet0*tube * -1.0))) / tube);
+out1 = (((exp(wet1*tube) - exp(wet1*tube * -1.2)) / (exp(wet1*tube) + exp(wet1*tube * -1.0))) / tube);
+
+spl0 = out0*wetgain+in0*drygain;
+spl1 = out1*wetgain+in1*drygain;
+
+histbuf[histpos]=spl0;
+histbuf[histpos+histsize]=spl1;
+
+histpos+=1;
+histpos >= histsize ? histpos=0;
+
+
+
+
+  hpf != 0 ? (
+  ospl0 = spl0;
+  spl0 = b01 * spl0 + b11 * xl11 + b21 * xl21 - a11 * yl11 - a21 * yl21;
+  xl21 = xl11;
+  xl11 = ospl0;
+  yl21 = yl11;
+  yl11 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b01 * spl1 + b11 * xr11 + b21 * xr21 - a11 * yr11 - a21 * yr21;
+  xr21 = xr11;
+  xr11 = ospl1;
+  yr21 = yr11;
+  yr11 = spl1;
+  );
+
+  lpf != 0 ? (
+  ospl0 = spl0;
+  spl0 = b03 * spl0 + b13 * xl13 + b23 * xl23 - a13 * yl13 - a23 * yl23;
+  xl23 = xl13;
+  xl13 = ospl0;
+  yl23 = yl13;
+  yl13 = spl0;
+
+  ospl1 = spl1;
+  spl1 = b03 * spl1 + b13 * xr13 + b23 * xr23 - a13 * yr13 - a23 * yr23;
+  xr23 = xr13;
+  xr13 = ospl1;
+  yr23 = yr13;
+  yr13 = spl1;
+  );
+
+
+@gfx 732 335
+
+
+
+mouse_cap > 0 ? (
+  mouseon == 0 ? (
+    mouseclick = 0;
+    (mouse_x>=319&&mouse_x<=405&&mouse_y>=156&&mouse_y<=240) ? (mouseon=1;mouseclick=1;val=1;);
+    (mouse_x>=319&&mouse_x<=405&&mouse_y>=42&&mouse_y<=123) ? (mouseon=2;mouseclick=2;val=1;);
+    (mouse_x>=589&&mouse_x<=673&&mouse_y>=42&&mouse_y<=123) ? (mouseon=3;mouseclick=3;val=1;);
+    (mouse_x>=589&&mouse_x<=673&&mouse_y>=156&&mouse_y<=240) ? (mouseon=4;mouseclick=4;val=1;);
+    (mouse_x>=20&&mouse_x<=265&&mouse_y>=25&&mouse_y<=250) ? (mouseon=5;mouseclick=5;val=10;);
+    (mouse_x>=455&&mouse_x<=538&&mouse_y>=42&&mouse_y<=123) ? (mouseon=6;mouseclick=6;val=10;);
+    (mouse_x>=455&&mouse_x<=538&&mouse_y>=156&&mouse_y<=240) ? (mouseon=7;mouseclick=7;val=100;);
+  );
+  //drive 
+mouseon == 1 ? (
+  mouse_cap > 0 ? (
+    mouse_y > saveY ? slider1 = max(-24,slider1 -= val);
+    mouse_y < saveY ? slider1 = min(24,slider1 += val);
+    mouse_cap == 2 ? slider1 = 0;
+    );
+);
+
+
+  //wet
+mouseon == 3 ? (
+  mouse_cap > 0 ? (
+    mouse_y > saveY ? slider3 = max(-24,slider3 -= val);
+    mouse_y < saveY ? slider3 = min(24,slider3 += val);
+    mouse_cap == 2 ? slider3 = 0;
+    );
+   );
+   
+     //dry
+   mouseon == 4 ? (
+     mouse_cap > 0 ? (
+       mouse_y > saveY ? slider4 = max(-24,slider4 -= val);
+       mouse_y < saveY ? slider4 = min(24,slider4 += val);
+       mouse_cap == 2 ? slider4 = 0;
+   );
+  );
+  
+     //drive
+   mouseon == 2 ? (
+     mouse_cap > 0 ? (
+       mouse_y > saveY ? slider2 = max(1,slider2 -= val);
+       mouse_y < saveY ? slider2 = min(100,slider2 += val);
+       mouse_cap == 2 ? slider2 = 50;
+   );
+  );  
+  
+  //Low cut
+   mouseon == 6 ? (
+     mouse_cap > 0 ? (
+       mouse_y > saveY ? slider6 = max(0,slider6 -= val);
+       mouse_y < saveY ? slider6 = min(1000,slider6 += val);
+       mouse_cap == 2 ? slider6 = 0;
+   );
+  ) ;
+  
+  //HIgh cut
+   mouseon == 7 ? (
+     mouse_cap > 0 ? (
+       mouse_y > saveY ? slider7 = max(12000,slider7 -= val);
+       mouse_y < saveY ? slider7 = min(22000,slider7 += val);
+       mouse_cap == 2 ? slider7 = 22000;
+   );
+  ); 
+  //Graphic
+   mouseon == 5 ? (
+     mouse_cap > 0 ? (
+       mouse_y > saveY ? slider5 = max(0,slider5 -= val);
+       mouse_y < saveY ? slider5 = min(1500,slider5 += val);
+       mouse_cap == 2 ? slider5 = 100;
+   );
+  );
+  
+  
+  
+  
+  //@slider code
+  pregain = 10^(slider1/20);
+  tube = (slider2+6.24)*0.1186;
+  
+  wetgain = slider3 <= -24.0 ? 0.0 : 10^(slider3/20);
+  drygain = slider4 <= -24.0 ? 0.0 : 10^(slider4/20);
+  
+  size=slider5;
+  histsize=size/1000*srate|0;
+  
+  
+  
+  
+    freq1 = slider6;
+    freq3 = slider7;
+  
+  
+    slider6 == 0 ? hpf = 0 : hpf = 1;
+    slider7 == 22000 ? lpf = 0 : lpf = 1;
+  
+    a1 = 1;
+    s1 = 1;
+    q1 = 1 / (sqrt((a1 + 1/a1)*(1/s1 - 1) + 2));
+    w01 = 2 * $pi * freq1/srate;
+    cosw01 = cos(w01);
+    sinw01 = sin(w01);
+    alpha1 = sinw01 / (2 * q1);
+  
+    b01 = (1 + cosw01)/2;
+    b11 = -(1 + cosw01);
+    b21 = (1 + cosw01)/2;
+    a01 = 1 + alpha1;
+    a11 = -2 * cosw01;
+    a21 = 1 - alpha1;
+    b01 /= a01;
+    b11 /= a01;
+    b21 /= a01;
+    a11 /= a01;
+    a21 /= a01;
+  
+    a3 = 1;
+    s3 = 1;
+    q3 = 1 / (sqrt((a3 + 1/a3)*(1/s3 - 1) + 2));
+    w03 = 2 * $pi * freq3/srate;
+    cosw03 = cos(w03);
+    sinw03 = sin(w03);
+    alpha3 = sinw03 / (2 * q3);
+  
+    b03 = (1 - cosw03)/2;
+    b13 = (1 - cosw03);
+    b23 = (1 - cosw03)/2;
+    a03 = 1 + alpha3;
+    a13 = -2 * cosw03;
+    a23 = 1 - alpha3;
+    b03 /= a03;
+    b13 /= a03;
+    b23 /= a03;
+    a13 /= a03;
+    a23 /= a03;
+  
+
+  
+  saveX=mouse_x;
+  saveY=mouse_y;
+
+): (done=0;mouseon=0;);
+
+
+
+gfx_a=0.1555;
+
+gfx_r=0;
+gfx_g=1;
+gfx_b=0.4;
+gfx_x=0; gfx_y=234;
+gfx_rectto(265,234);
+//vertical
+gfx_x=34; gfx_y=0;
+gfx_lineto(34,265);
+gfx_x=54; gfx_y=0;
+gfx_lineto(54,265);
+gfx_x=74; gfx_y=0;
+gfx_lineto(74,265);
+gfx_x=94; gfx_y=0;
+gfx_lineto(94,265);
+gfx_x=114; gfx_y=0;
+gfx_lineto(114,265);
+gfx_x=134; gfx_y=0;
+gfx_lineto(134,265);
+gfx_x=154; gfx_y=0;
+gfx_lineto(154,265);
+gfx_x=174; gfx_y=0;
+gfx_lineto(174,265);
+gfx_x=194; gfx_y=0;
+gfx_lineto(194,265);
+gfx_x=214; gfx_y=0;
+gfx_lineto(214,265);
+gfx_x=234; gfx_y=0;
+gfx_lineto(234,265);
+gfx_x=252; gfx_y=0;
+gfx_lineto(252,265);
+//horizontal
+gfx_x=0; gfx_y=34;
+gfx_lineto(265,34);
+gfx_x=0; gfx_y=54;
+gfx_lineto(265,54);
+gfx_x=0; gfx_y=74;
+gfx_lineto(265,74);
+gfx_x=0; gfx_y=94;
+gfx_lineto(265,94);
+gfx_x=0; gfx_y=114;
+gfx_lineto(265,114);
+
+gfx_x=0; gfx_y=134;
+gfx_lineto(265,134);
+gfx_x=0; gfx_y=154;
+gfx_lineto(265,154);
+gfx_x=0; gfx_y=174;
+gfx_lineto(265,174);
+gfx_x=0; gfx_y=194;
+gfx_lineto(265,194);
+gfx_x=0; gfx_y=214;
+gfx_lineto(265,214);
+
+gfx_x=0; gfx_y=234;
+gfx_lineto(265,234);
+
+
+
+gfxSize = 265;
+
+gfx_r=0.6;gfx_g=0.4;gfx_b=0.2;
+gfx_a=1;
+
+ga=0;
+loop(histsize,
+gv=gbuf[offs];
+offs+=1;
+offs>=histsize?offs=0;
+gx=ga*gscale;
+gy=gfxSize/2 - gv*gscale2;
+ga ? gfx_lineto(gx,gy,0) : ( gfx_x=gx; gfx_y=gy; );
+ga+=1;
+);
+
+gbuf+=histsize;
+
+gfx_r=0.5; gfx_g=1; gfx_b=0;
+gfx_x=0;
+gfx_y=gfxSize;
+x = -2;
+while(
+y = -(tanh((((exp(x*tube) - exp(x*tube * -1.2)) / (exp(x*tube) + exp(x*tube * -1.0))) / tube)));
+gfx_lineto(x*gfxSize/2+gfxSize/2,y*gfxSize/2+gfxSize/2,1);
+(x+=0.001) <= 1;
+);
+gfx_lineto(gfxSize-1,0,2);
+
+offs=histpos;
+gscale=gfxSize/histsize;
+gbuf=histbuf;
+gscale2=gfxSize/2;
+
+
+
+
+//background
+gfx_a=1;
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=1118;
+  coordinatelist[3]=704;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=1118;
+  coordinatelist[7]=704;
+  coordinatelist[8]=0; //represents offset from center of image
+  coordinatelist[9]=0; //represents offset from center of image
+  gfx_blitext(0,coordinatelist,0);
+  
+  
+ gfx_setfont(1,"Arial",14,'a');
+ 
+  gfx_a=1;
+  //knobs
+  gfx_r=1;
+  gfx_g=0.2;
+  gfx_b=0;
+
+  //Drive
+ gfx_arc(363,86,39,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,40,10+slider2/31*1.6, 10); 
+ gfx_arc(363,86,41,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,42,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,43,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,39,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,40,10+slider2/31*1.6, 10); 
+ gfx_arc(363,86,41,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,42,10+slider2/31*1.6, 10);
+ gfx_arc(363,86,43,10+slider2/31*1.6, 10);
+ 
+  //Input
+ gfx_arc(363,200,39,10+slider1/9.4+2.6, 10); 
+ gfx_arc(363,200,40,10+slider1/9.4+2.6, 10); 
+ gfx_arc(363,200,41,10+slider1/9.4+2.6, 10); 
+ gfx_arc(363,200,42,10+slider1/9.4+2.6, 10);
+ gfx_arc(363,200,43,10+slider1/9.4+2.6, 10);
+ gfx_arc(363,200,39,10+slider1/9.4+2.6, 10); 
+ gfx_arc(363,200,40,10+slider1/9.4+2.6, 10); 
+ gfx_arc(363,200,41,10+slider1/9.4+2.6, 10); 
+ gfx_arc(363,200,42,10+slider1/9.4+2.6, 10);
+ gfx_arc(363,200,43,10+slider1/9.4+2.6, 10);
+ 
+ 
+  //wet
+ gfx_arc(630,86,39,10+slider3/9.4+2.6, 10); 
+ gfx_arc(630,86,40,10+slider3/9.4+2.6, 10); 
+ gfx_arc(630,86,41,10+slider3/9.4+2.6, 10); 
+ gfx_arc(630,86,42,10+slider3/9.4+2.6, 10);
+ gfx_arc(630,86,43,10+slider3/9.4+2.6, 10);
+ gfx_arc(630,86,39,10+slider3/9.4+2.6, 10); 
+ gfx_arc(630,86,40,10+slider3/9.4+2.6, 10); 
+ gfx_arc(630,86,41,10+slider3/9.4+2.6, 10); 
+ gfx_arc(630,86,42,10+slider3/9.4+2.6, 10);
+ gfx_arc(630,86,43,10+slider3/9.4+2.6, 10);
+ 
+ 
+  //Dry
+ gfx_arc(630,200,39,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,40,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,41,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,42,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,43,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,39,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,40,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,41,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,42,10+slider4/9.4+2.6, 10); 
+ gfx_arc(630,200,43,10+slider4/9.4+2.6, 10); 
+ 
+ 
+  //Low Cut
+ gfx_arc(496,86,39,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,40,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,41,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,42,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,43,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,39,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,40,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,41,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,42,10.06+slider6/3100*15.9, 10); 
+ gfx_arc(496,86,43,10.06+slider6/3100*15.9, 10); 
+
+
+ 
+  //High cut
+ gfx_arc(496,200,39,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,40,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,41,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,42,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,43,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,39,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,40,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,41,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,42,10.1+slider7/3100*1.6, 21.5);
+ gfx_arc(496,200,43,10.1+slider7/3100*1.6, 21.5);
+
+
+ //Arc Reference
+ gfx_a=0.5;
+ gfx_r=0.7;
+ gfx_g=0.3;
+ gfx_b=0;
+ //Drive
+ gfx_arc(363,86,41,10+100/31*1.6, 10);
+  //Input
+ gfx_arc(363,200,41,10+100/31*1.6, 10);
+ 
+  //wet
+ gfx_arc(630,86,41,10+100/31*1.6, 10);
+ //dry
+ gfx_arc(630,200,41,10+100/31*1.6, 10);
+ 
+ //Low cut
+ gfx_arc(496,86,41,10+100/31*1.6, 10);
+ //High cut
+ gfx_arc(496,200,41,10+100/31*1.6, 10);
+ 
+ 
+ gfx_a=1;
+ gfx_r = 1;
+   gfx_g = 1;
+    gfx_b = 0.4;
+   
+ //display Drive
+  mouseon==2 ?   (
+   gfx_x=351;gfx_y=128;
+   gfx_drawnumber(slider2,0);
+   gfx_drawchar($'%');
+
+  );
+
+
+ //display Input
+  mouseon==1 ?  
+    (
+     gfx_x=350;gfx_y=240;
+      gfx_drawnumber(slider1,0);
+       gfx_drawchar($'d');
+       gfx_drawchar($'b');
+  );
+ 
+ //display High cut
+ mouseon==7 ?   (
+   gfx_x=473;gfx_y=240;
+   gfx_drawnumber(slider7,0);
+   gfx_drawchar($'K');
+   gfx_drawchar($'h');
+   gfx_drawchar($'z');
+ );
+ 
+ //display Low cut
+  mouseon==6 ?   (
+   gfx_x=482;gfx_y=128;
+   gfx_drawnumber(slider6,0);
+   gfx_drawchar($'H');
+   gfx_drawchar($'z');
+ );
+ 
+ //display Wet
+  mouseon==3 ?   (
+   gfx_x=618;gfx_y=128;
+   gfx_drawnumber(slider3,0);
+   gfx_drawchar($'d');
+   gfx_drawchar($'b');
+ );
+ 
+ //display dry
+  mouseon==4 ?   (
+   gfx_x=614;gfx_y=240;
+   gfx_drawnumber(slider4,0);
+   gfx_drawchar($'d');
+   gfx_drawchar($'b');
+ );
+ 
+ //Graphic
+  mouseon==5 ?   (
+   gfx_x=134;gfx_y=44;
+   gfx_drawnumber(slider5,0);
+ );
+ //Graphic size name
+ 
+   gfx_x=132;gfx_y=32;
+
+  gfx_drawchar($'S');
+  gfx_drawchar($'i');
+  gfx_drawchar($'z');
+  gfx_drawchar($'e');
+  gfx_drawchar($':');
+ 
+ 
+ gfx_x = 20; gfx_y = 251;
+ gfx_r = 0.2; gfx_g = 0.2; gfx_b = 0; gfx_a = 0.8;
+ gfx_setfont(1,"Arial Black",77,'i');
+ gfx_drawstr("ReaSaturation"); 
+ 
+ gfx_x = 24; gfx_y = 251;
+ gfx_r = 0.8; gfx_g = 0.3; gfx_b = 0; gfx_a = 1;
+ gfx_setfont(1,"Arial Black",77,'i');
+ gfx_drawstr("ReaSaturation");
+ 
+ 
+ gfx_a = 1;
+ gfx_x = 600; gfx_y = 304;
+ gfx_r = 1; gfx_g = 0.2; gfx_b = 0; 
+ gfx_setfont(1,"Arial",20,'i');
+ gfx_drawstr("Gil Fernandes"); 
+ 
+ 
+ gfx_a = 1;
+ gfx_x = 345; gfx_y = 75;
+ gfx_r = 1; gfx_g = 0.2; gfx_b = 0; 
+ 
+ gfx_setfont(1,"Arial",20,'a');
+ 
+ gfx_drawstr("Drive");
+ 
+
+ gfx_x = 467; gfx_y = 75;
+ gfx_drawstr("Low Cut");
+ 
+ gfx_x = 614; gfx_y = 75;
+ gfx_drawstr("Wet");
+ 
+
+ gfx_x = 345; gfx_y = 188;
+ gfx_drawstr("Input");
+ 
+ 
+ gfx_x = 465; gfx_y = 188;
+ gfx_drawstr("High Cut");
+ 
+ gfx_x = 617; gfx_y = 188;; 
+ gfx_drawstr("Dry");
+ 
+ 
+  help.x=680;            
+  help.y=5;
+  
+  
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.5;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("Info!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +50 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 0.9;
+ );
+ );
+ 
+ 
+   displayHelp > 0.01 ? (
+    gfx_a = displayHelp;
+   gfx_mode = 0;
+   middleX = 720/2; middleY = 340/2;
+   gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+   gfx_rect(middleX-120,middleY-120,250,115);
+   gfx_r = 1; gfx_g = 1; gfx_b = 0;
+   gfx_x = middleX-100; gfx_y = middleY-100;
+ 
+   gfx_drawstr("Author Code: Unknown
+ \nSkin: Gil Fernandes
+Youtube.com/Gfbeats    "
+ 
+ );
+   displayHelp *= 0.9;
+ );
+       

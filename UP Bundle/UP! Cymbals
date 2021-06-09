@@ -1,0 +1,650 @@
+desc:UP! Cymbals (Gil Fernandes)
+
+
+filename:0,cs.png
+filename:1,s1.png
+slider1:0<0,1,1{Stereo,Mono}>-Processing
+slider2:50<0,100,0.05>-none
+slider3:-24<-24,24,0.01>-Gain 
+slider4:57<0,100,0.05>-High Shelf (Scale)
+slider5:0<-24,24,0.01>-Gain 
+slider6:0<-24,24,0.05>-Output
+
+slider7:1200<0,10000,10>-HPF
+
+slider8:-8<-12,1,.1>-T 
+slider9:30<1,50,.1>-R
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+options:no_meter
+
+@init
+  hpf = 0;
+  gain1 = 0;
+  freq1 = slider7;
+  a1 = 1;
+  s1 = 1;
+  q1 = 1 / (sqrt((a1 + 1/a1)*(1/s1 - 1) + 2));
+  w01 = 2 * $pi * freq1/srate;
+  cosw01 = cos(w01);
+  sinw01 = sin(w01);
+  alpha1 = sinw01 / (2 * q1);
+
+  b01 = (1 + cosw01)/2;
+  b11 = -(1 + cosw01);
+  b21 = (1 + cosw01)/2;
+  a01 = 1 + alpha1;
+  a11 = -2 * cosw01;
+  a21 = 1 - alpha1;
+  b01 /= a01;
+  b11 /= a01;
+  b21 /= a01;
+  a11 /= a01;
+  a21 /= a01;
+  
+  SPN=0;
+  yl_ls=x1l_ls=x2l_ls=y1l_ls=y2l_ls=yr_ls=x1r_ls=x2r_ls=y1r_ls=y2r_ls=0;
+  yl_hs=x1l_hs=x2l_hs=y1l_hs=y2l_hs=yr_hs=x1r_hs=x2r_hs=y1r_hs=y2r_hs=0;
+  
+  cAmpDB_ = 8.6561702
+
+@slider
+  freq1 = slider7;
+  slider7 == 0 ? hpf = 0 : hpf = 1;
+  a1 = 1;
+  s1 = 1;
+  q1 = 1 / (sqrt((a1 + 1/a1)*(1/s1 - 1) + 2));
+  w01 = 2 * $pi * freq1/srate;
+  cosw01 = cos(w01);
+  sinw01 = sin(w01);
+  alpha1 = sinw01 / (2 * q1);
+
+  b01 = (1 + cosw01)/2;
+  b11 = -(1 + cosw01);
+  b21 = (1 + cosw01)/2;
+  a01 = 1 + alpha1;
+  a11 = -2 * cosw01;
+  a21 = 1 - alpha1;
+  b01 /= a01;
+  b11 /= a01;
+  b21 /= a01;
+  a11 /= a01;
+  a21 /= a01;
+
+  a3 = 1;
+  s3 = 1;
+  q3 = 1 / (sqrt((a3 + 1/a3)*(1/s3 - 1) + 2));
+  w03 = 2 * $pi * freq3/srate;
+  cosw03 = cos(w03);
+  sinw03 = sin(w03);
+  alpha3 = sinw03 / (2 * q3);
+
+  b03 = (1 - cosw03)/2;
+  b13 = (1 - cosw03);
+  b23 = (1 - cosw03)/2;
+  a03 = 1 + alpha3;
+  a13 = -2 * cosw03;
+  a23 = 1 - alpha3;
+  b03 /= a03;
+  b13 /= a03;
+  b23 /= a03;
+  a13 /= a03;
+  a23 /= a03;
+  
+  mono = slider1;
+  outgain = 10^(slider6/20);
+  
+  //*** LS
+  sx = 16+slider2*1.20103;
+  cf = floor(exp(sx*log(1.059))*8.17742);
+  freq1 = cf;
+  cf /= srate;
+  boost = slider3;
+  
+  sa = tan($pi*(cf-0.25));
+  asq = sa*sa;
+  A = 10^(boost/20.0);
+  (boost < 6.0) && (boost > -6.0) ? (
+    F = sqrt(A);
+  ) : (
+    (A > 1.0) ? (
+        F = A/sqrt(2.0);
+      ) : (
+        F = A*sqrt(2.0);
+      );
+  );
+  F2 = F*F;
+  tmp = A*A - F2;
+  abs(tmp) <= SPN ? (
+    gammad = 1.0;
+  ) : (
+    gammad = ((F2-1.0)/tmp)^(0.25);
+  );
+  gamman = sqrt(A)*gammad;
+  gamma2 = gamman*gamman;
+  gam2p1 = 1.0 + gamma2;
+  siggam2 = 2.0*sqrt(2.0)/2.0*gamman;
+  ta0 = gam2p1 + siggam2;
+  ta1 = -2.0*(1.0 - gamma2);
+  ta2 = gam2p1 - siggam2;
+  gamma2 = gammad*gammad;
+  gam2p1 = 1.0 + gamma2;
+  siggam2 = 2.0*sqrt(2.0)/2.0*gammad;
+  tb0 = gam2p1 + siggam2;
+  tb1 = -2.0*(1.0 - gamma2);
+  tb2 = gam2p1 - siggam2;
+  
+  aa1 = sa*ta1;
+  a0 = ta0 + aa1 + asq*ta2;
+  a1 = 2.0*sa*(ta0+ta2)+(1.0+asq)*ta1;
+  a2 = asq*ta0 + aa1 + ta2;
+  
+  ab1 = sa*tb1;
+  b0 = tb0 + ab1 + asq*tb2;
+  b1 = 2.0*sa*(tb0+tb2)+(1.0+asq)*tb1;
+  b2 = asq*tb0 + ab1 + tb2;
+  
+  recipb0 = 1.0/b0;
+  a0 *= recipb0;
+  a1 *= recipb0;
+  a2 *= recipb0;
+  b1 *= recipb0;
+  b2 *= recipb0;
+  
+  a0_ls = a0;  
+  a1_ls = a1;
+  a2_ls = a2;
+  b1_ls = -b1;
+  b2_ls = -b2;
+  
+  //*** HS
+  sx = 16+slider4*1.20103;
+  cf = floor(exp(sx*log(1.059))*8.17742);
+  freq2 = cf;
+  cf /= srate;
+  boost = -slider5;
+  
+  sa = tan($pi*(cf-0.25));
+  asq = sa*sa;
+  A = 10^(boost/20.0);
+  (boost < 6.0) && (boost > -6.0) ? (
+    F = sqrt(A);
+  ) : (
+    (A > 1.0) ? (
+        F = A/sqrt(2.0);
+      ) : (
+        F = A*sqrt(2.0);
+      );
+  );
+  F2 = F*F;
+  tmp = A*A - F2;
+  abs(tmp) <= SPN ? (
+    gammad = 1.0;
+  ) : (
+    gammad = ((F2-1.0)/tmp)^(0.25);
+  );
+  gamman = sqrt(A)*gammad;
+  gamma2 = gamman*gamman;
+  gam2p1 = 1.0 + gamma2;
+  siggam2 = 2.0*sqrt(2.0)/2.0*gamman;
+  ta0 = gam2p1 + siggam2;
+  ta1 = -2.0*(1.0 - gamma2);
+  ta2 = gam2p1 - siggam2;
+  gamma2 = gammad*gammad;
+  gam2p1 = 1.0 + gamma2;
+  siggam2 = 2.0*sqrt(2.0)/2.0*gammad;
+  tb0 = gam2p1 + siggam2;
+  tb1 = -2.0*(1.0 - gamma2);
+  tb2 = gam2p1 - siggam2;
+  
+  aa1 = sa*ta1;
+  a0 = ta0 + aa1 + asq*ta2;
+  a1 = 2.0*sa*(ta0+ta2)+(1.0+asq)*ta1;
+  a2 = asq*ta0 + aa1 + ta2;
+  
+  ab1 = sa*tb1;
+  b0 = tb0 + ab1 + asq*tb2;
+  b1 = 2.0*sa*(tb0+tb2)+(1.0+asq)*tb1;
+  b2 = asq*tb0 + ab1 + tb2;
+  
+  recipb0 = 1.0/b0;
+  a0 *= recipb0;
+  a1 *= recipb0;
+  a2 *= recipb0;
+  b1 *= recipb0;
+  b2 *= recipb0;
+    
+  gain = 10^(boost/20.0);
+  a0_hs = a0/gain;
+  a1_hs = a1/gain; 
+  a2_hs = a2/gain; 
+  b1_hs = -b1;
+  b2_hs = -b2;
+  
+  treshDB = slider8;
+  
+  ratio = slider9;
+  
+  vol = 1/exp( (treshDB -treshDB/ratio) / cAmpDB_);
+  
+  
+@sample
+
+  hpf != 0 ? (
+  ospl0 = spl0;
+  spl0 = b01 * spl0 + b11 * xl11 + b21 * xl21 - a11 * yl11 - a21 * yl21;
+  xl21 = xl11;
+  xl11 = ospl0;
+  yl21 = yl11;
+  yl11 = spl0;
+  
+  ospl1 = spl1;
+  spl1 = b01 * spl1 + b11 * xr11 + b21 * xr21 - a11 * yr11 - a21 * yr21;
+  xr21 = xr11;
+  xr11 = ospl1;
+  yr21 = yr11;
+  yr11 = spl1;
+  );
+
+@sample
+
+//mono
+mono == 1 ? (
+
+//LS
+xl_ls = (spl0+spl1)/2;
+ 
+yl_ls = a0_ls*xl_ls + a1_ls*x1l_ls + a2_ls*x2l_ls + b1_ls*y1l_ls + b2_ls*y2l_ls;
+x2l_ls = x1l_ls;
+x1l_ls = xl_ls;
+y2l_ls = y1l_ls;
+y1l_ls = yl_ls;
+
+//HS
+xl_hs = yl_ls;
+ 
+yl_hs = a0_hs*xl_hs + a1_hs*x1l_hs + a2_hs*x2l_hs + b1_hs*y1l_hs + b2_hs*y2l_hs;
+x2l_hs = x1l_hs;
+x1l_hs = xl_hs;
+y2l_hs = y1l_hs;
+y1l_hs = yl_hs;
+
+spl0=spl1=yl_hs*outgain;
+
+//stereo
+) : (
+
+//LS
+xl_ls = spl0;
+xr_ls = spl1;
+ 
+yl_ls = a0_ls*xl_ls + a1_ls*x1l_ls + a2_ls*x2l_ls + b1_ls*y1l_ls + b2_ls*y2l_ls;
+x2l_ls = x1l_ls;
+x1l_ls = xl_ls;
+y2l_ls = y1l_ls;
+y1l_ls = yl_ls;
+
+yr_ls = a0_ls*xr_ls + a1_ls*x1r_ls + a2_ls*x2r_ls + b1_ls*y1r_ls + b2_ls*y2r_ls;
+x2r_ls = x1r_ls;
+x1r_ls = xr_ls;
+y2r_ls = y1r_ls;
+y1r_ls = yr_ls;
+
+
+//HS
+xl_hs = yl_ls;
+xr_hs = yr_ls;
+ 
+yl_hs = a0_hs*xl_hs + a1_hs*x1l_hs + a2_hs*x2l_hs + b1_hs*y1l_hs + b2_hs*y2l_hs;
+x2l_hs = x1l_hs;
+x1l_hs = xl_hs;
+y2l_hs = y1l_hs;
+y1l_hs = yl_hs;
+
+yr_hs = a0_hs*xr_hs + a1_hs*x1r_hs + a2_hs*x2r_hs + b1_hs*y1r_hs + b2_hs*y2r_hs;
+x2r_hs = x1r_hs;
+x1r_hs = xr_hs;
+y2r_hs = y1r_hs;
+y1r_hs = yr_hs;
+
+spl0 = yl_hs*outgain;
+spl1 = yr_hs*outgain;
+
+);
+
+@sample
+(db0 = log(abs(spl0))*cAmpDB_) > treshDB ? spl0 = exp( (treshDB + (db0 - treshDB)/ratio) / cAmpDB_)* sign(spl0);
+(db1 = log(abs(spl1))*cAmpDB_) > treshDB ? spl1 = exp( (treshDB + (db1 - treshDB)/ratio) / cAmpDB_)* sign(spl1);
+spl0 *= vol;
+spl1 *= vol;
+
+@gfx 300 200
+
+
+ mouse_cap > 0 ? (
+        mouseon == 0 ? (
+          mouseclick = 1;
+          mouse_cap == 2 ? val=1.0 : val = 1;
+          
+          (mouse_x>=32&&mouse_x<=103&&mouse_y>=95&&mouse_y<=161) ? (mouseon=8;mouseclick=8;);
+          
+          (mouse_x>=152&&mouse_x<=220&&mouse_y>=95&&mouse_y<=161) ? (mouseon=4;mouseclick=4;);
+          
+          (mouse_x>=268&&mouse_x<=335&&mouse_y>=95&&mouse_y<=161) ? (mouseon=5;mouseclick=5;);
+          
+           );
+          
+            mouseon == 8 ? (
+              mouse_y < saveY ? slider8 = max(-12,slider8-val);
+              mouse_y > saveY ? slider8 = min(-1,slider8+val);
+              mouse_cap == 2 ? slider8 = -8;
+              
+              );
+              
+            mouseon == 4 ? (
+              mouse_y < saveY ? slider4 = max(57,slider4-val);
+              mouse_y > saveY ? slider4 = min(90,slider4+val);
+              mouse_cap == 2 ? slider4 = 57;
+      
+           );
+            mouseon == 5 ? (
+              mouse_y < saveY ? slider5 = max(-12,slider5-val);
+              mouse_y > saveY ? slider5 = min(5,slider5+val);
+              mouse_cap == 2 ? slider5 = 0;
+              
+      );
+      
+        saveX=mouse_X;
+        saveY=mouse_y;
+        
+        
+        freq1 = slider7;
+        slider7 == 0 ? hpf = 0 : hpf = 1;
+        a1 = 1;
+        s1 = 1;
+        q1 = 1 / (sqrt((a1 + 1/a1)*(1/s1 - 1) + 2));
+        w01 = 2 * $pi * freq1/srate;
+        cosw01 = cos(w01);
+        sinw01 = sin(w01);
+        alpha1 = sinw01 / (2 * q1);
+        
+        b01 = (1 + cosw01)/2;
+        b11 = -(1 + cosw01);
+        b21 = (1 + cosw01)/2;
+        a01 = 1 + alpha1;
+        a11 = -2 * cosw01;
+        a21 = 1 - alpha1;
+        b01 /= a01;
+        b11 /= a01;
+        b21 /= a01;
+        a11 /= a01;
+        a21 /= a01;
+        
+        a3 = 1;
+        s3 = 1;
+        q3 = 1 / (sqrt((a3 + 1/a3)*(1/s3 - 1) + 2));
+        w03 = 2 * $pi * freq3/srate;
+        cosw03 = cos(w03);
+        sinw03 = sin(w03);
+        alpha3 = sinw03 / (2 * q3);
+        
+        b03 = (1 - cosw03)/2;
+        b13 = (1 - cosw03);
+        b23 = (1 - cosw03)/2;
+        a03 = 1 + alpha3;
+        a13 = -2 * cosw03;
+        a23 = 1 - alpha3;
+        b03 /= a03;
+        b13 /= a03;
+        b23 /= a03;
+        a13 /= a03;
+        a23 /= a03;
+        
+        mono = slider1;
+        outgain = 10^(slider6/20);
+        
+
+        //*** HS
+        sx = 16+slider4*1.20103;
+        cf = floor(exp(sx*log(1.059))*8.17742);
+        freq2 = cf;
+        cf /= srate;
+        boost = -slider5;
+        
+        sa = tan($pi*(cf-0.25));
+        asq = sa*sa;
+        A = 10^(boost/20.0);
+        (boost < 6.0) && (boost > -6.0) ? (
+          F = sqrt(A);
+        ) : (
+          (A > 1.0) ? (
+              F = A/sqrt(2.0);
+            ) : (
+              F = A*sqrt(2.0);
+            );
+        );
+        F2 = F*F;
+        tmp = A*A - F2;
+        abs(tmp) <= SPN ? (
+          gammad = 1.0;
+        ) : (
+          gammad = ((F2-1.0)/tmp)^(0.25);
+        );
+        gamman = sqrt(A)*gammad;
+        gamma2 = gamman*gamman;
+        gam2p1 = 1.0 + gamma2;
+        siggam2 = 2.0*sqrt(2.0)/2.0*gamman;
+        ta0 = gam2p1 + siggam2;
+        ta1 = -2.0*(1.0 - gamma2);
+        ta2 = gam2p1 - siggam2;
+        gamma2 = gammad*gammad;
+        gam2p1 = 1.0 + gamma2;
+        siggam2 = 2.0*sqrt(2.0)/2.0*gammad;
+        tb0 = gam2p1 + siggam2;
+        tb1 = -2.0*(1.0 - gamma2);
+        tb2 = gam2p1 - siggam2;
+        
+        aa1 = sa*ta1;
+        a0 = ta0 + aa1 + asq*ta2;
+        a1 = 2.0*sa*(ta0+ta2)+(1.0+asq)*ta1;
+        a2 = asq*ta0 + aa1 + ta2;
+        
+        ab1 = sa*tb1;
+        b0 = tb0 + ab1 + asq*tb2;
+        b1 = 2.0*sa*(tb0+tb2)+(1.0+asq)*tb1;
+        b2 = asq*tb0 + ab1 + tb2;
+        
+        recipb0 = 1.0/b0;
+        a0 *= recipb0;
+        a1 *= recipb0;
+        a2 *= recipb0;
+        b1 *= recipb0;
+        b2 *= recipb0;
+          
+        gain = 10^(boost/20.0);
+        a0_hs = a0/gain;
+        a1_hs = a1/gain; 
+        a2_hs = a2/gain; 
+        b1_hs = -b1;
+        b2_hs = -b2;
+        
+        
+        
+        
+        treshDB = slider8;
+        
+        ratio = slider9;
+        
+        vol = 1/exp( (treshDB -treshDB/ratio) / cAmpDB_);
+        
+        
+        
+        
+        
+        
+        ): (done=0;mouseon=0;);
+        
+
+
+    gfx_a=1;
+    gfx_x=gfx_y=0;
+    
+      rotation_x_offset = 1; 
+      rotation_y_offset = 1;   
+      coordinatelist=1000000; 
+     //posição da imagem de fundo
+      coordinatelist[0]=0;
+      coordinatelist[1]=0;
+      coordinatelist[2]=300;
+      coordinatelist[3]=179;
+      coordinatelist[4]=0;
+      coordinatelist[5]=0;
+      coordinatelist[6]=380;
+      coordinatelist[7]=200;
+      coordinatelist[8]=0; 
+      coordinatelist[9]=0; 
+      gfx_blitext(0,coordinatelist,0);
+      /////Background
+      
+      //Boost Amount
+      coordinatelist[0]=-3;
+      coordinatelist[1]=-3;
+      coordinatelist[2]=131;
+      coordinatelist[3]=131;
+      coordinatelist[4]=35;
+      coordinatelist[5]=93;
+      coordinatelist[6]=70;
+      coordinatelist[7]=70;
+      coordinatelist[8]=0; 
+      coordinatelist[9]=0; 
+      gfx_blitext(1,coordinatelist,11.6+slider8/31*13.8);
+     //High Pass
+      coordinatelist[0]=-3;
+      coordinatelist[1]=-3;
+      coordinatelist[2]=131;
+      coordinatelist[3]=131;
+      coordinatelist[4]=148;
+      coordinatelist[5]=93;
+      coordinatelist[6]=70;
+      coordinatelist[7]=70;
+      coordinatelist[8]=0; 
+      coordinatelist[9]=0;  
+      gfx_blitext(1,coordinatelist,4.6+slider4/33.8*4.8);
+      /////Background
+      
+      //volume
+      coordinatelist[0]=-3;
+      coordinatelist[1]=-3;
+      coordinatelist[2]=131;
+      coordinatelist[3]=131;
+      coordinatelist[4]=267;
+      coordinatelist[5]=93;
+      coordinatelist[6]=70;
+      coordinatelist[7]=70;
+      coordinatelist[8]=0; 
+      coordinatelist[9]=0; 
+      gfx_blitext(1,coordinatelist,10.5+slider5/3.6+5.6);
+      /////Background
+      
+
+//display
+gfx_clear=1;
+  gfx_r=gfx_g=gfx_b=0.7;
+  gfx_setfont(1,"Franklin Gothic Medium",18,'b');
+  gfx_x=52;gfx_y=75;
+  
+   A = ("Boost ");
+    gfx_drawstr (A);
+    
+    gfx_y=165;
+    gfx_x=45;
+     gfx_drawnumber(slider8,1);
+     gfx_drawchar($'d');
+     gfx_drawchar($'b');
+     
+     gfx_x=150;gfx_y=75;
+     
+      B = ("Frequency");
+       gfx_drawstr (B);
+       
+       gfx_y=165;
+       gfx_x=158;
+        gfx_drawnumber(freq2,0);
+        gfx_drawchar($'H');
+        gfx_drawchar($'z');
+        
+        
+        gfx_x=270;gfx_y=75;
+        
+         C = ("Brightness");
+          gfx_drawstr (C);
+          
+          gfx_y=165;
+          gfx_x=286;
+           gfx_drawnumber(slider5,0);
+           gfx_drawchar($'d');
+           gfx_drawchar($'b');
+ 
+ gfx_r=0.9;
+ gfx_g=0.1;
+ gfx_b=0;
+        gfx_x=140;gfx_y=41;
+        
+         D = ("Gil Fernandes");
+          gfx_drawstr (D);
+          
+
+
+
+           gfx_a=1;
+           //knobs aRC
+           gfx_r=0.5;
+           gfx_g=0.6;
+           gfx_b=0;
+      
+          
+          //Boost
+          gfx_arc(70,128,25,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,26,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,27,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,28,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,29,15.5+slider8/31*13.8, 10.1);
+
+          
+          
+          gfx_arc(70,128,25,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,26,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,27,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,28,15.5+slider8/31*13.8, 10.1);
+          gfx_arc(70,128,29,15.5+slider8/31*13.8, 10.1);
+          
+          //Freq
+          gfx_arc(183,128,25,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,26,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,27,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,28,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,29,2.2+slider4/33.8*4.8, 10.1);
+          
+          gfx_arc(183,128,25,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,26,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,27,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,28,2.2+slider4/33.8*4.8, 10.1);
+          gfx_arc(183,128,29,2.2+slider4/33.8*4.8, 10.1);
+
+           //Gain  
+           gfx_arc(302,128,25,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,26,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,27,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,28,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,29,8.1+slider5/3.6+5.6, 10.2);
+           
+           gfx_arc(302,128,25,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,26,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,27,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,28,8.1+slider5/3.6+5.6, 10.2);
+           gfx_arc(302,128,29,8.1+slider5/3.6+5.6, 10.2);
+

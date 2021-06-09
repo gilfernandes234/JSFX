@@ -1,0 +1,403 @@
+// (C) 2007, Michael Gruhn.
+
+// NO WARRANTY IS GRANTED.  THIS PLUG-IN  IS PROVIDED FOR FREE  ON  AN  "AS  IS"
+// BASIS, WITHOUT WARRANTY OF ANY KIND.  NO LIABILITY IS GRANTED, INCLUDING, BUT
+// NOT LIMITED TO, ANY DIRECT OR INDIRECT,  SPECIAL, INCIDENTAL OR CONSEQUENTIAL
+// DAMAGE ARISING OUT OF THE USE  OR INABILITY  TO  USE  THIS PLUG-IN,  COMPUTER
+// FAILTURE  OF  MALFUNCTION  INCLUDED.  THE  USE  OF THE  SOURCE  CODE,  EITHER
+// PARTIALLY OR IN TOTAL, IS ONLY GRANTED,  IF USED IN THE SENSE OF THE AUTHOR'S
+// INTENTION,  AND USED WITH ACKNOWLEDGEMENT OF THE AUTHOR.  LAST BUT NOT LEAST,
+// BY USING THIS  PLUG-IN YOU RELINQUISH YOUR CLAIM TO SUE IT'S AUTHOR,  AS WELL
+// AS YOUR CLAIM TO ENTRUST SOMEBODY ELSE WITH DOING SO.
+
+// NOTE: This is a early alpha release!
+
+desc:Compciter
+//tags: processing distortion exciter
+//author: LOSER
+filename:0,CompGFX\background.png
+filename:1,CompGFX\knob2.png
+filename:2,CompGFX\knob.png
+filename:3,CompGFX\Fader.png
+
+slider1:25<0,60,.1>-Saturation (dB)
+slider2:25<0,100,1>-Distortion (%)
+slider3:5000<200,12000,1>-Highpass (Hz)
+slider4:0<-24,24,1>-Wet (dB)
+slider5:0<-24,24,1>-Dry (dB)
+
+in_pin:left input
+in_pin:right input
+out_pin:left output
+out_pin:right output
+
+@init
+function RGBA(R,G,B,A) (
+  this.r = R; this.g = G; this.b = B; this.a = A;
+);
+s1.RGBA(1,1,1,0.8); // Saturation
+s2.RGBA(1,1,1,0.8); // Distortion
+s4.RGBA(1,1,1,0.8); // WET
+s5.RGBA(1,1,1,0.8); // Dry
+
+
+updateAlways = 1;
+gain = seekgain = 1;
+c = 8.65617025;
+dc = 10^-30;
+
+gain = seekGain = 1;
+
+
+@slider
+
+s1.value = slider1;
+s2.value = slider2;
+s4.value = slider4;
+s5.value = slider5;
+ 
+threshDB = -slider1;
+thresh = exp(threshDB/c);
+ratio = 1/20;
+
+release = exp( -60 / (    pow(1-slider2/100,3)   *500*srate/1000) / c );
+
+t0 = t1 = 0;
+blp = -exp(-2*$pi*slider3*3 / srate );
+alp = 1.0 + blp;
+
+wet = exp(slider4/c) / exp(( threshDB -threshDB*ratio )/c);
+dry = exp(slider5/c);
+
+seekgain = 1;
+
+
+@sample
+s0 =      (t00 = alp*spl0-blp*t00);
+s1 =      (t01 = alp*spl1-blp*t01);
+s0 =      (t10 = alp*s0  -blp*t10);
+s1 =      (t11 = alp*s1  -blp*t11);
+s0 = spl0-(t20 = alp*s0-blp*t20);
+s1 = spl1-(t21 = alp*s1-blp*t21);
+
+rms = max( abs(spl0) , abs(spl1) );
+seekGain = ((rms > thresh) ? exp((threshDB + (log(rms)*c-threshDB)*ratio) /c) / rms : 1);
+gain = ((gain > seekGain) ? seekGain : min( gain/release , seekGain ));
+spl0 = spl0*dry + s0 *gain * wet;
+spl1 = spl1*dry + s1 *gain * wet;
+
+@gfx 445 250
+  
+  gfx_setfont(1,"Arial",14,'a');
+  
+  
+
+  
+
+
+  coordinatelist=30000; 
+
+ //  background graphics
+  coordinatelist[0]=0;
+  coordinatelist[1]=0;
+  coordinatelist[2]=550;
+  coordinatelist[3]=342;
+  coordinatelist[4]=0;
+  coordinatelist[5]=0;
+  coordinatelist[6]=445;
+  coordinatelist[7]=250;
+  coordinatelist[8]=rotation_x_offset;
+  coordinatelist[9]=rotation_y_offset;
+  
+  gfx_blitext(0,coordinatelist,0);
+  
+  gfx_r = 0.4;
+   gfx_g = 0.4;
+    gfx_b = 0.4;
+   
+  
+     
+
+      
+     gfx_a = 0.9;
+     gfx_x=30;gfx_y=218;
+     gfx_lineto(30,186);
+     gfx_x=123;gfx_y=218;
+     gfx_lineto(123,186);
+     gfx_x=222;gfx_y=218;
+     gfx_lineto(222,186);
+     gfx_x=323;gfx_y=218;
+     gfx_lineto(323,186);
+     gfx_x=403;gfx_y=218;
+     gfx_lineto(403,186);
+     
+     gfx_roundrect(27,198,379,22,2);
+     gfx_roundrect(27,197,378,22,2);
+     
+     gfx_r = 0.8;
+      gfx_g = 0;
+       gfx_b = 0;
+      
+     
+     gfx_a = 1;
+      gfx_x=30;gfx_y=218;
+      gfx_rectto(24+slider3/31.6,200);
+      gfx_a = 1;
+      coordinatelist[0]=0;
+      coordinatelist[1]=0;
+      coordinatelist[2]=128;
+      coordinatelist[3]=128;
+      coordinatelist[4]=5+slider3/31.6; 
+      coordinatelist[5]=190;
+      coordinatelist[6]=38;
+      coordinatelist[7]=38;
+      coordinatelist[8]=rotation_x_offset;
+      coordinatelist[9]=rotation_y_offset;
+      
+      gfx_blitext(3,coordinatelist,0);
+      
+      
+      mouse_cap > 0 ? (
+        mouseon == 0 ? (
+          mouseclick = 0;
+          (mouse_x>=29&&mouse_x<=410&&mouse_y>=195&&mouse_y<=220) ? (mouseon=3;mouseclick=3;val=1;);
+
+        );
+      
+    
+        mouseon == 3 ? (
+          mouse_cap == 1 ? slider3 = max(200,min((mouse_x-24)*31.6,12000)):
+          mouse_cap == 2 ? slider3 = 5000;
+      
+      
+        );
+
+        
+      
+      
+      
+      threshDB = -slider1;
+      thresh = exp(threshDB/c);
+      ratio = 1/20;
+      
+      release = exp( -60 / (    pow(1-slider2/100,3)   *500*srate/1000) / c );
+      
+      t0 = t1 = 0;
+      blp = -exp(-2*$pi*slider3*3 / srate );
+      alp = 1.0 + blp;
+      
+      wet = exp(slider4/c) / exp(( threshDB -threshDB*ratio )/c);
+      dry = exp(slider5/c);
+      
+      seekgain = 1;
+      
+      
+        saveX=mouse_x;
+        saveY=mouse_y;
+      ): (done=0;mouseon=0;);
+      
+
+     
+    
+     
+     
+function draw_pot(x,y,fw,fh,fn,f,t,s,d,id,uStr)
+(
+  
+  this.range = abs(f - t);
+  this.steps = this.range / s;
+  this.offset = f < 0 ? abs(f) : 0;
+  
+  // Mouse Logic
+  mouse_x >= x && mouse_x <= x+fw && mouse_y >= y && mouse_y <= y+fh && !this.disabled ? (
+    !mouse_cap ? this.hasEntered = 1;
+    mouse_cap ? this.hasClicked = 1;
+    mouse_cap & 4 ? this.value = d;
+    this.hasEntered && this.hasClicked ? this.canChange = 1;
+  ) : (
+    this.hasEntered = this.hasClicked = 0;
+  );
+  !mouse_cap ? this.canChange = 0;
+  
+  // Process
+  this.canChange ? (
+    this.value += (this.y_tmp - mouse_y) * s;
+  );
+  
+  this.y_tmp = mouse_y;
+
+  // Update
+  !this.init || this.value.temp != this.value ? (
+    this.value = max(this.value,f);
+    this.value = min(this.value,t);
+    this.normalized = (this.value+this.offset) * (1/(this.steps * s)) * 0.999;
+    this.rpos = floor((1 - this.normalized) + fn * this.normalized) * fh;
+    
+    _sliderDirty = 1;
+    this.value.temp = this.value;
+    this.init = 1;
+  );
+  
+  coordinatelist = 0;
+  coordinatelist[0] = 0;
+  coordinatelist[1] = this.rpos;
+  coordinatelist[2] = coordinatelist[6] = fw;
+  coordinatelist[3] = coordinatelist[7] = fh;
+  coordinatelist[4] = x;
+  coordinatelist[5] = y;
+  gfx_a = 1;
+  gfx_blitext(id, coordinatelist, 0);
+  
+  /* Readout */
+  gfx_r = this.r; gfx_g = this.g; gfx_b = this.b; gfx_a = this.a;
+  this.valStr = strcat(sprintf(#,"%.0f",this.value),uStr);
+  gfx_measurestr(this.valStr,this.valStr.w,this.valStr.h);
+  gfx_x = x+(fw*0.52)-(this.valStr.w*0.5); gfx_y = y + fh - 2;
+  gfx_drawstr(this.valStr);
+  
+  this.value;
+);
+ 
+
+slider1 = s1.draw_pot(136,73,60,60,31,0,60,0.5,25,1," db");
+              
+              
+slider2 = s2.draw_pot(235,73,60,60,31,0,100,0.5,25,1,"%");    
+                    
+ 
+ slider4 = s4.draw_pot(30,51,80,80,41,-24,24,0.5,0,2," db");
+                       
+
+                       
+ slider5 = s5.draw_pot(330,51,80,80,41,-24,24,0.5,0,2," db");
+  
+     
+     _sliderDirty ? (
+     
+threshDB = -slider1;
+thresh = exp(threshDB/c);
+ratio = 1/20;
+
+release = exp( -60 / (    pow(1-slider2/100,3)   *500*srate/1000) / c );
+
+t0 = t1 = 0;
+blp = -exp(-2*$pi*slider3*3 / srate );
+alp = 1.0 + blp;
+
+wet = exp(slider4/c) / exp(( threshDB -threshDB*ratio )/c);
+dry = exp(slider5/c);
+
+seekgain = 1;
+
+
+    _sliderDirty = 0;
+  );
+     
+     
+  gfx_r =  gfx_g =  gfx_b = 1;
+     gfx_a = 0.8;
+  
+    gfx_x = 61;
+    gfx_y = 31;
+    gfx_drawstr("Wet");
+    
+    gfx_x = 362;
+    gfx_drawstr("Dry");
+    
+    gfx_x = 144;
+    gfx_y = 56;
+    gfx_drawstr("Saturation");
+    
+    gfx_x = 245;
+    gfx_drawstr("Distortion");
+    
+    
+      gfx_x = 9;
+      gfx_y = 9;
+      gfx_drawstr("LOSER");
+       
+         gfx_x = 350;
+         gfx_y = 234;
+         gfx_drawstr("Gil Fernandes");
+         gfx_drawstr(" V1.2");
+  
+          
+          gfx_y = 170;
+            
+            gfx_x = 18;
+           gfx_drawstr("200hz");
+  
+            gfx_x = 107;
+            gfx_drawstr("3160hz");
+            
+            gfx_x = 206;
+            gfx_drawstr("6288hz");
+  
+            
+            gfx_x = 390;
+            gfx_drawstr("12hz");
+            
+            gfx_x = 306;
+            gfx_drawstr("9480hz");
+  
+      
+     gfx_y=230; 
+      gfx_x=175;
+        gfx_drawstr("High Pass:");
+         gfx_drawnumber(slider3,0);   
+     
+     
+     
+     
+     
+     
+   help.x=4;            
+   help.y=234;
+
+
+ gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.9;
+ gfx_x = help.x; gfx_y = help.y;
+ gfx_drawstr("CREDITS!!!");
+
+ mouse_cap > 0 ? (
+   mouseon == 0 ? (
+     mouseclick = 0;
+     (mouse_x>= help.x && mouse_x<= help.x +50 && 
+      mouse_y>= help.y && mouse_y<= help.y +10) ?
+   displayHelp = 1;
+ );
+ );
+
+  displayHelp > 0.01 ? (
+   gfx_a = displayHelp;
+  gfx_mode = 0;
+  middleX = 452/2; middleY = 320/2;
+  gfx_r = 0.1; gfx_g = 0.1; gfx_b = 0.1;
+  gfx_rect(middleX-120,middleY-120,250,145);
+  gfx_r = 1; gfx_g = 1; gfx_b = 0;
+  gfx_x = middleX-100; gfx_y = middleY-100;
+
+  gfx_drawstr("        
+           Author: (C) 2007, Michael Gruhn.
+  
+                CodeGFX: Gil Fernandes
+    https://estudiogilfernandes.blogspot.com
+                  Youtube.com/GFbeats 
+
+                      "
+        
+);
+
+  displayHelp *=0.85;
+);
+       
+     
+    
+
+     
+
+     
+     
+     
+     
+
